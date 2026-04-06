@@ -1,0 +1,16 @@
+[
+  {"type": "Truss Section", "mass_kg": 5000, "assembly_hours": 48, "crew_required": false, "category": "structural"},
+  {"type": "Airlock/Docking Node", "mass_kg": 5000, "assembly_hours": 72, "crew_required": true, "category": "structural"},
+  {"type": "Habitat Block", "mass_kg": 20000, "assembly_hours": 120, "crew_required": true, "category": "habitation"},
+  {"type": "Solar Array Unit", "mass_kg": 6000, "assembly_hours": 36, "crew_required": false, "category": "power", "power_output_kw": 100},
+  {"type": "Fission Reactor Unit", "mass_kg": 15000, "assembly_hours": 100, "crew_required": true, "category": "power", "power_output_kw": 500},
+  {"type": "Fusion Reactor Unit", "mass_kg": 40000, "assembly_hours": 160, "crew_required": true, "category": "power", "power_output_kw": 5000},
+  {"type": "Thermal System Unit", "mass_kg": 3000, "assembly_hours": 24, "crew_required": false, "category": "thermal"},
+  {"type": "Chemical (LOX/LH2)", "mass_kg": 15000, "assembly_hours": 80, "crew_required": true, "category": "propulsion", "isp": 450, "thrust_level": "High"},
+  {"type": "Nuclear Thermal (NTP)", "mass_kg": 25000, "assembly_hours": 120, "crew_required": true, "category": "propulsion", "isp": 900, "thrust_level": "Medium-High"},
+  {"type": "Nuclear Electric (NEP)", "mass_kg": 30000, "assembly_hours": 160, "crew_required": true, "category": "propulsion", "isp": 5000, "thrust_level": "Low", "required_power_system": "Fission or Fusion"},
+  {"type": "Solar Electric (SEP)", "mass_kg": 10000, "assembly_hours": 100, "crew_required": true, "category": "propulsion", "isp": 3000, "thrust_level": "Very Low", "required_power_system": "Solar"},
+  {"type": "Avionics & Comms Suite", "mass_kg": 4000, "assembly_hours": 60, "crew_required": true, "category": "avionics"},
+  {"type": "Shielding Section", "mass_kg": 4000, "assembly_hours": 30, "crew_required": false, "category": "specialty"},
+  {"type": "Robotic Arm Station", "mass_kg": 2500, "assembly_hours": 48, "crew_required": true, "category": "specialty"}
+]

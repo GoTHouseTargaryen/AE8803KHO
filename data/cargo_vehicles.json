@@ -1,0 +1,11 @@
+[
+  {"name": "Falcon Heavy", "nation": "USA", "payload_to_leo_kg": 63800, "fairing_volume_m3": 145, "cost_per_launch_million": 150, "l4_direct": false, "status": "Operational"},
+  {"name": "SLS Block 2", "nation": "USA", "payload_to_leo_kg": 130000, "fairing_volume_m3": 325, "cost_per_launch_million": 2000, "l4_direct": true, "status": "Operational"},
+  {"name": "Starship", "nation": "USA", "payload_to_leo_kg": 150000, "fairing_volume_m3": 1000, "cost_per_launch_million": 100, "l4_direct": true, "status": "Near-term"},
+  {"name": "Vulcan Centaur", "nation": "USA", "payload_to_leo_kg": 27200, "fairing_volume_m3": 95, "cost_per_launch_million": 110, "l4_direct": false, "status": "Operational"},
+  {"name": "New Glenn", "nation": "USA", "payload_to_leo_kg": 45000, "fairing_volume_m3": 160, "cost_per_launch_million": 70, "l4_direct": false, "status": "Near-term"},
+  {"name": "H3", "nation": "Japan", "payload_to_leo_kg": 6500, "fairing_volume_m3": 40, "cost_per_launch_million": 50, "l4_direct": false, "status": "Operational"},
+  {"name": "Ariane 6", "nation": "Europe", "payload_to_leo_kg": 21600, "fairing_volume_m3": 180, "cost_per_launch_million": 115, "l4_direct": false, "status": "Operational"},
+  {"name": "KSLV-III", "nation": "South Korea", "payload_to_leo_kg": 10000, "fairing_volume_m3": 50, "cost_per_launch_million": 80, "l4_direct": false, "status": "In development"},
+  {"name": "GSLV Mk III", "nation": "India", "payload_to_leo_kg": 10000, "fairing_volume_m3": 50, "cost_per_launch_million": 50, "l4_direct": false, "status": "Operational"}
+]
