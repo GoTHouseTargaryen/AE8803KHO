@@ -15,6 +15,7 @@ export interface CrewVehicle {
   max_mission_duration_days: number;
   mass_kg: number;
   l4_direct: boolean;
+  cost_per_launch_million: number;
   mass_per_crew_kg: number;
 }
 
@@ -94,4 +95,23 @@ export interface SimulationResult {
   modules_completed: number;
   cumulative_risk: number;
   timeline: TimelineEntry[];
+}
+
+export interface ParetoPoint {
+  w_launches: number;
+  w_time: number;
+  w_cost: number;
+  total_launches: number;
+  total_periods: number;
+  total_cost_million: number;
+  modules_completed: number;
+}
+
+export interface ParetoResult {
+  points: ParetoPoint[];
+  all_points: ParetoPoint[];
+}
+
+export interface ParetoRequest extends Omit<SimulationRequest, "weights"> {
+  pareto_steps?: number;
 }

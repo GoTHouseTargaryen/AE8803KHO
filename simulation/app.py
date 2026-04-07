@@ -132,6 +132,101 @@ def create_app() -> Flask:
             "timeline": result.timeline,
         })
 
+    @app.route("/api/pareto", methods=["POST"])
+    def pareto():
+        """Run the solver across a grid of weight combinations and return the Pareto frontier."""
+        body = request.get_json()
+
+        sc = body["spacecraft"]
+        dag = generate_spacecraft(
+            length_km=sc["length_km"],
+            structure_type=sc["structure_type"],
+            propulsion_type=sc["propulsion_type"],
+            power_type=sc["power_type"],
+        )
+
+        all_cargo = {v.name: v for v in CargoVehicle.default_catalog()}
+        all_crew = {v.name: v for v in CrewVehicle.default_catalog()}
+        all_stages = {s.name: s for s in TransferStage.default_catalog()}
+
+        cargo_vehicles = [all_cargo[n] for n in body["cargo_vehicles"] if n in all_cargo]
+        crew_vehicles = [all_crew[n] for n in body["crew_vehicles"] if n in all_crew]
+        transfer_stages = [all_stages[n] for n in body["transfer_stages"] if n in all_stages]
+
+        prox = body.get("proximity", {})
+        base_config_kwargs = dict(
+            dag=dag,
+            cargo_vehicles=cargo_vehicles,
+            crew_vehicles=crew_vehicles,
+            transfer_stages=transfer_stages,
+            proximity=ProximityModel(
+                alpha=prox.get("alpha", 0.1),
+                beta=prox.get("beta", 1.5),
+                base_capacity=prox.get("base_capacity", 2),
+                max_capacity=prox.get("max_capacity", 10),
+            ),
+            transfer=TransferModel(),
+            period_days=body.get("period_days", 7),
+            beam_width=body.get("beam_width", 50),
+            max_periods=body.get("max_periods", 200),
+            max_eva_hours_per_session=body.get("max_eva_hours_per_session", 6),
+            max_pairs_per_iva=body.get("max_pairs_per_iva", 2),
+            robotic_time_penalty=body.get("robotic_time_penalty", 1.5),
+        )
+
+        # Grid: vary each weight from 0 to 2 in steps; normalise so sum > 0
+        steps = body.get("pareto_steps", 3)
+        weight_values = [i / (steps - 1) * 2.0 for i in range(steps)] if steps > 1 else [1.0]
+
+        points = []
+        seen: set[tuple] = set()
+        for wl in weight_values:
+            for wt in weight_values:
+                for wc in weight_values:
+                    if wl + wt + wc == 0:
+                        continue
+                    config = SolverConfig(
+                        weights=ObjectiveWeights(w_launches=wl, w_time=wt, w_cost=wc),
+                        **base_config_kwargs,
+                    )
+                    result = DPSolver(config).solve()
+                    key = (result.total_launches, result.total_periods, round(result.total_cost_million, 1))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    points.append({
+                        "w_launches": wl,
+                        "w_time": wt,
+                        "w_cost": wc,
+                        "total_launches": result.total_launches,
+                        "total_periods": result.total_periods,
+                        "total_cost_million": result.total_cost_million,
+                        "modules_completed": result.modules_completed,
+                    })
+
+        # Filter to non-dominated points
+        pareto = []
+        for p in points:
+            dominated = False
+            for q in points:
+                if (
+                    q["total_launches"] <= p["total_launches"]
+                    and q["total_periods"] <= p["total_periods"]
+                    and q["total_cost_million"] <= p["total_cost_million"]
+                    and q != p
+                    and (
+                        q["total_launches"] < p["total_launches"]
+                        or q["total_periods"] < p["total_periods"]
+                        or q["total_cost_million"] < p["total_cost_million"]
+                    )
+                ):
+                    dominated = True
+                    break
+            if not dominated:
+                pareto.append(p)
+
+        return jsonify({"points": pareto, "all_points": points})
+
     return app
 
 

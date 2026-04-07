@@ -13,6 +13,7 @@ class CrewState:
     n_robotic_arms: int = 0
     hours_per_period: float = 168  # 24 * 7
     robotic_time_penalty: float = 1.5
+    duty_cycle: float = 0.6  # 60% productive after rest/maintenance overhead
 
     @property
     def n_iva_support(self) -> int:
@@ -36,7 +37,7 @@ class CrewState:
 
     @property
     def eva_hours_per_period(self) -> float:
-        return self.n_eva_pairs * self.max_eva_hours_per_session * self.eva_days_per_period
+        return self.n_eva_pairs * self.max_eva_hours_per_session * self.eva_days_per_period * self.duty_cycle
 
     @property
     def robotic_hours_per_period(self) -> float:

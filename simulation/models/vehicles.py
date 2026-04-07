@@ -36,6 +36,7 @@ class CrewVehicle:
     max_mission_duration_days: int
     mass_kg: float
     l4_direct: bool
+    cost_per_launch_million: float = 200.0
     mass_per_crew_kg: float = 200
 
     def available_cargo_kg(self, crew_onboard: int) -> float:
@@ -44,10 +45,10 @@ class CrewVehicle:
     @staticmethod
     def default_catalog() -> list[CrewVehicle]:
         return [
-            CrewVehicle("Crew Dragon", "USA", 7, 180, 12519, False),
-            CrewVehicle("Starliner", "USA", 7, 210, 13000, False),
-            CrewVehicle("Orion", "USA/ESA", 4, 21, 26520, True),
-            CrewVehicle("Starship HLS", "USA", 6, 180, 100000, True),
+            CrewVehicle("Crew Dragon", "USA", 7, 180, 12519, False, 55.0),
+            CrewVehicle("Starliner", "USA", 7, 210, 13000, False, 90.0),
+            CrewVehicle("Orion", "USA/ESA", 4, 21, 26520, True, 500.0),
+            CrewVehicle("Starship HLS", "USA", 6, 180, 100000, True, 200.0),
         ]
 
 

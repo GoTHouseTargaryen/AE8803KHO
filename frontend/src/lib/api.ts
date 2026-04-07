@@ -6,6 +6,8 @@ import type {
   GenerateResult,
   SimulationRequest,
   SimulationResult,
+  ParetoRequest,
+  ParetoResult,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -50,6 +52,13 @@ export async function runSimulation(
   request: SimulationRequest
 ): Promise<SimulationResult> {
   return fetchJson("/api/simulate", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function runPareto(request: ParetoRequest): Promise<ParetoResult> {
+  return fetchJson("/api/pareto", {
     method: "POST",
     body: JSON.stringify(request),
   });

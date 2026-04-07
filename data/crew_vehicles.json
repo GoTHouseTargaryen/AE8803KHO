@@ -1,6 +1,6 @@
 [
-  {"name": "Crew Dragon", "nation": "USA", "max_crew": 7, "max_mission_duration_days": 180, "mass_kg": 12519, "l4_direct": false, "mass_per_crew_kg": 200},
-  {"name": "Starliner", "nation": "USA", "max_crew": 7, "max_mission_duration_days": 210, "mass_kg": 13000, "l4_direct": false, "mass_per_crew_kg": 200},
-  {"name": "Orion", "nation": "USA/ESA", "max_crew": 4, "max_mission_duration_days": 21, "mass_kg": 26520, "l4_direct": true, "mass_per_crew_kg": 250},
-  {"name": "Starship HLS", "nation": "USA", "max_crew": 6, "max_mission_duration_days": 180, "mass_kg": 100000, "l4_direct": true, "mass_per_crew_kg": 200}
+  {"name": "Crew Dragon", "nation": "USA", "max_crew": 7, "max_mission_duration_days": 180, "mass_kg": 12519, "l4_direct": false, "cost_per_launch_million": 55.0, "mass_per_crew_kg": 200},
+  {"name": "Starliner", "nation": "USA", "max_crew": 7, "max_mission_duration_days": 210, "mass_kg": 13000, "l4_direct": false, "cost_per_launch_million": 90.0, "mass_per_crew_kg": 200},
+  {"name": "Orion", "nation": "USA/ESA", "max_crew": 4, "max_mission_duration_days": 21, "mass_kg": 26520, "l4_direct": true, "cost_per_launch_million": 500.0, "mass_per_crew_kg": 250},
+  {"name": "Starship HLS", "nation": "USA", "max_crew": 6, "max_mission_duration_days": 180, "mass_kg": 100000, "l4_direct": true, "cost_per_launch_million": 200.0, "mass_per_crew_kg": 200}
 ]

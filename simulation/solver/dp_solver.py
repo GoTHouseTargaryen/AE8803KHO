@@ -13,6 +13,9 @@ from simulation.proximity import ProximityModel
 from simulation.transfer import TransferModel
 from simulation.solver.objectives import ObjectiveWeights, compute_cost
 
+# Turnaround time (periods) before the same cargo vehicle can launch again
+DEFAULT_PAD_TURNAROUND_PERIODS = 2
+
 
 @dataclass
 class SolverConfig:
@@ -29,6 +32,8 @@ class SolverConfig:
     max_eva_hours_per_session: float = 6
     max_pairs_per_iva: int = 2
     robotic_time_penalty: float = 1.5
+    duty_cycle: float = 0.6
+    pad_turnaround_periods: int = DEFAULT_PAD_TURNAROUND_PERIODS
 
 
 @dataclass
@@ -45,8 +50,11 @@ class SolverResult:
 # Work-in-progress: module_id -> remaining assembly hours
 _WIP = dict[str, float]
 
-# Internal beam entry: SimState, modules delivered to site, WIP, timeline
-_BeamEntry = tuple[SimState, frozenset[str], _WIP, list[dict]]
+# last_launch_period: vehicle_name -> last period it was used
+_LastLaunch = dict[str, int]
+
+# Internal beam entry: SimState, modules delivered to site, WIP, last-launch map, timeline
+_BeamEntry = tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[dict]]
 
 
 class DPSolver:
@@ -76,43 +84,125 @@ class DPSolver:
                 transit_periods = math.ceil(best_transit / config.period_days)
                 self._delivery_cache[cv.name] = (best_mass, transit_periods, best_cost)
 
+        # Crew vehicle delivery cache (transit periods for LEO-only crew vehicles via best stage)
+        self._crew_transit_cache: dict[str, int] = {}
+        for cv in config.crew_vehicles:
+            if cv.l4_direct:
+                self._crew_transit_cache[cv.name] = math.ceil(60 / config.period_days)
+            else:
+                # Use a transfer stage for crew transit — pick best mass-capable stage
+                best_t = math.ceil(120 / config.period_days)
+                for stage in config.transfer_stages:
+                    try:
+                        # Treat crew vehicle like a cargo vehicle for transit calculation
+                        fake_cv = CargoVehicle(
+                            cv.name, cv.nation, cv.mass_kg, 50,
+                            cv.cost_per_launch_million, False, "crew"
+                        )
+                        res = config.transfer.compute_delivery(fake_cv, "direct", stage)
+                        if res.mass_delivered_kg > 0:
+                            best_t = math.ceil(res.transit_days / config.period_days)
+                            break
+                    except ValueError:
+                        continue
+                self._crew_transit_cache[cv.name] = best_t
+
     def _progress_score(
         self, state: SimState, delivered: frozenset[str], wip: _WIP
     ) -> float:
         """Higher is better: measures overall progress toward completion."""
         built = len(state.modules_built)
-        n_delivered = len(delivered - state.modules_built)
+        at_site = delivered - state.modules_built
+        n_delivered = len(at_site)
         n_in_transit = sum(len(c.module_ids) for c in state.cargo_in_transit)
         has_crew = 1.0 if state.total_crew > 0 else 0.0
         wip_progress = len(wip) * 0.5
+        # Extra bonus when crew is on-site and there are modules ready to assemble
+        ready_to_build = len(self.dag.get_available(state.modules_built) & at_site)
+        crew_utility = has_crew * (5.0 + ready_to_build * 3.0)
         return (
             built * 10.0
             + n_delivered * 3.0
             + n_in_transit * 1.0
-            + has_crew * 2.0
+            + crew_utility
             + wip_progress
         )
 
+    def _effective_progress(
+        self, state: SimState, delivered: frozenset[str], wip: _WIP
+    ) -> int:
+        """Progress metric: built + delivered + in-transit + weighted crew coverage.
+
+        Crew coverage = total periods-remaining across all docked vehicles, so a
+        state with a freshly-launched crew (high periods_remaining) is NOT dominated
+        by a state with an expiring crew (periods_remaining=1).
+        """
+        built = len(state.modules_built)
+        at_site = len(delivered - state.modules_built)
+        in_transit = sum(len(c.module_ids) for c in state.cargo_in_transit)
+        crew_coverage = sum(cv.periods_remaining for cv in state.crew_vehicles)
+        return built * 3 + at_site * 2 + in_transit + crew_coverage
+
+    def _is_dominated(
+        self,
+        a_state: SimState, a_delivered: frozenset[str], a_wip: _WIP,
+        b_state: SimState, b_delivered: frozenset[str], b_wip: _WIP,
+    ) -> bool:
+        """Return True if b is dominated by a across all objectives including pipeline progress."""
+        a_prog = self._effective_progress(a_state, a_delivered, a_wip)
+        b_prog = self._effective_progress(b_state, b_delivered, b_wip)
+        return (
+            a_prog >= b_prog
+            and a_state.total_launches <= b_state.total_launches
+            and a_state.period <= b_state.period
+            and a_state.total_cost_million <= b_state.total_cost_million
+            and (
+                a_prog > b_prog
+                or a_state.total_launches < b_state.total_launches
+                or a_state.period < b_state.period
+                or a_state.total_cost_million < b_state.total_cost_million
+            )
+        )
+
+    def _prune_dominated(
+        self, beam: list[tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[dict], float]]
+    ) -> list[tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[dict], float]]:
+        """Remove beam entries dominated by any other entry."""
+        kept = []
+        for i, entry_i in enumerate(beam):
+            s_i, d_i, w_i = entry_i[0], entry_i[1], entry_i[2]
+            dominated = False
+            for j, entry_j in enumerate(beam):
+                if i == j:
+                    continue
+                s_j, d_j, w_j = entry_j[0], entry_j[1], entry_j[2]
+                if self._is_dominated(s_j, d_j, w_j, s_i, d_i, w_i):
+                    dominated = True
+                    break
+            if not dominated:
+                kept.append(entry_i)
+        return kept
+
     def solve(self) -> SolverResult:
         initial = SimState.initial()
-        beam: list[_BeamEntry] = [(initial, frozenset(), {}, [])]
+        beam: list[_BeamEntry] = [(initial, frozenset(), {}, {}, [])]
 
         for period in range(self.config.max_periods):
             if not beam:
                 break
 
             # Check if any beam entry is complete
-            for state, delivered, wip, timeline in beam:
+            for state, delivered, wip, last_launch, timeline in beam:
                 if len(state.modules_built) == self.total_modules:
                     return self._make_result(state, timeline)
 
             next_beam: list[
-                tuple[SimState, frozenset[str], _WIP, list[dict], float]
+                tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[dict], float]
             ] = []
 
-            for state, delivered, wip, timeline in beam:
-                successors = self._expand(state, delivered, wip, period)
-                for new_state, new_delivered, new_wip, actions in successors:
+            for state, delivered, wip, last_launch, timeline in beam:
+                successors = self._expand(state, delivered, wip, last_launch, period)
+                for new_state, new_delivered, new_wip, new_last_launch, actions in successors:
                     cost = compute_cost(
                         self.config.weights,
                         new_state.total_launches,
@@ -126,23 +216,23 @@ class DPSolver:
                         {"period": period, "actions": actions}
                     ]
                     next_beam.append(
-                        (new_state, new_delivered, new_wip, new_timeline, cost)
+                        (new_state, new_delivered, new_wip, new_last_launch, new_timeline, cost)
                     )
 
             # Sort: higher progress first, then lower cost to break ties
             next_beam.sort(
                 key=lambda x: (
                     -self._progress_score(x[0], x[1], x[2]),
-                    x[4],
+                    x[5],
                 )
             )
             beam = [
-                (s, d, w, t)
-                for s, d, w, t, _ in next_beam[: self.config.beam_width]
+                (s, d, w, ll, t)
+                for s, d, w, ll, t, _ in next_beam[: self.config.beam_width]
             ]
 
         if beam:
-            best_state, _, _, best_timeline = beam[0]
+            best_state, _, _, _, best_timeline = beam[0]
             return self._make_result(best_state, best_timeline)
 
         return self._make_result(initial, [])
@@ -152,16 +242,19 @@ class DPSolver:
         state: SimState,
         delivered: frozenset[str],
         wip: _WIP,
+        last_launch: _LastLaunch,
         period: int,
-    ) -> list[tuple[SimState, frozenset[str], _WIP, list[str]]]:
-        successors: list[tuple[SimState, frozenset[str], _WIP, list[str]]] = []
+    ) -> list[tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[str]]]:
+        successors: list[tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[str]]] = []
 
         # --- Process cargo arrivals ---
         new_delivered = set(delivered)
         remaining_transit: list[CargoInTransit] = []
+        arriving_this_period = 0  # for proximity counting
         for cargo in state.cargo_in_transit:
             if cargo.arrival_period <= period:
                 new_delivered.update(cargo.module_ids)
+                arriving_this_period += 1
             else:
                 remaining_transit.append(cargo)
         delivered_fs = frozenset(new_delivered)
@@ -179,7 +272,9 @@ class DPSolver:
         # --- Compute assembly capacity ---
         total_crew = sum(cv.crew_onboard for cv in active_crew)
         progress = state.build_progress(self.total_modules)
-        n_prox = len(active_crew)
+
+        # Proximity: crew vehicles + arriving cargo vehicles count
+        n_prox = len(active_crew) + arriving_this_period
         penalty = self.config.proximity.penalty(max(1, n_prox), progress)
 
         # Modules available per DAG and delivered to site
@@ -196,6 +291,7 @@ class DPSolver:
             ),
             hours_per_period=self.config.period_days * 24,
             robotic_time_penalty=self.config.robotic_time_penalty,
+            duty_cycle=self.config.duty_cycle,
         )
 
         crew_hours = crew_state_obj.eva_hours_per_period / penalty
@@ -280,6 +376,11 @@ class DPSolver:
 
         new_modules_built = state.modules_built | frozenset(newly_built)
 
+        # --- Tug fleet management ---
+        # Reusable tugs that have completed return transit come back into the pool
+        new_tugs = state.tugs_available
+        # (Tug return tracking via tugs_available is already in state — preserved as-is for now)
+
         # --- Risk accumulation ---
         risk = self.config.proximity.collision_risk(n_prox, self.config.period_days)
 
@@ -289,13 +390,13 @@ class DPSolver:
             crew_vehicles=active_crew,
             cargo_in_transit=remaining_transit,
             cargo_at_site=state.cargo_at_site,
-            tugs_available=state.tugs_available,
+            tugs_available=new_tugs,
             period=period + 1,
             total_launches=state.total_launches,
             total_cost_million=state.total_cost_million,
             cumulative_risk=state.cumulative_risk + risk,
         )
-        successors.append((base_state, delivered_fs, new_wip, actions))
+        successors.append((base_state, delivered_fs, new_wip, last_launch, actions))
 
         # --- Determine modules that still need to be launched ---
         all_module_ids = set(self.dag.modules.keys())
@@ -305,73 +406,85 @@ class DPSolver:
             in_transit_ids.update(c.module_ids)
         launchable = modules_not_delivered - in_transit_ids
 
-        # --- Try launching cargo ---
+        # --- Try launching cargo (respect pad turnaround per vehicle) ---
         if launchable and self._delivery_cache:
-            best_vehicle_name = max(
-                self._delivery_cache, key=lambda k: self._delivery_cache[k][0]
-            )
-            best_mass, transit_p, cost = self._delivery_cache[best_vehicle_name]
+            # Consider each available cargo vehicle (not on cooldown)
+            eligible_cargo = {
+                name: data
+                for name, data in self._delivery_cache.items()
+                if period - last_launch.get(name, -999) >= self.config.pad_turnaround_periods
+            }
+            if eligible_cargo:
+                best_vehicle_name = max(
+                    eligible_cargo, key=lambda k: eligible_cargo[k][0]
+                )
+                best_mass, transit_p, cost = eligible_cargo[best_vehicle_name]
 
-            manifest: list[str] = []
-            mass_remaining = best_mass
-            for mid in sorted(launchable):
-                mod = self.dag.get_module(mid)
-                if mod.mass_kg <= mass_remaining:
-                    manifest.append(mid)
-                    mass_remaining -= mod.mass_kg
+                manifest: list[str] = []
+                mass_remaining = best_mass
+                for mid in sorted(launchable):
+                    mod = self.dag.get_module(mid)
+                    if mod.mass_kg <= mass_remaining:
+                        manifest.append(mid)
+                        mass_remaining -= mod.mass_kg
 
-            if manifest:
-                new_transit = remaining_transit + [
-                    CargoInTransit(tuple(manifest), period + transit_p, cost)
+                if manifest:
+                    new_last_launch = dict(last_launch)
+                    new_last_launch[best_vehicle_name] = period
+                    new_transit = remaining_transit + [
+                        CargoInTransit(tuple(manifest), period + transit_p, cost)
+                    ]
+                    launch_actions = actions + [
+                        f"launched:{best_vehicle_name}:{','.join(manifest)}"
+                    ]
+                    launch_state = SimState(
+                        modules_built=new_modules_built,
+                        crew_vehicles=active_crew,
+                        cargo_in_transit=new_transit,
+                        cargo_at_site=state.cargo_at_site,
+                        tugs_available=new_tugs,
+                        period=period + 1,
+                        total_launches=state.total_launches + 1,
+                        total_cost_million=state.total_cost_million + cost,
+                        cumulative_risk=state.cumulative_risk + risk,
+                    )
+                    successors.append(
+                        (launch_state, delivered_fs, new_wip, new_last_launch, launch_actions)
+                    )
+
+        # --- Try sending crew if none on-site ---
+        # Consider each crew vehicle (not on cooldown), pick cheapest available
+        if total_crew == 0 and self.config.crew_vehicles:
+            eligible_crew = [
+                cv for cv in self.config.crew_vehicles
+                if period - last_launch.get(cv.name, -999) >= self.config.pad_turnaround_periods
+            ]
+            if eligible_crew:
+                # Pick the cheapest eligible crew vehicle
+                cv = min(eligible_crew, key=lambda v: v.cost_per_launch_million)
+                crew_count = min(cv.max_crew, 5)
+                rotation_periods = cv.max_mission_duration_days // self.config.period_days
+                new_crew = active_crew + [
+                    DockedCrewVehicle(cv.name, crew_count, rotation_periods)
                 ]
-                launch_actions = actions + [
-                    f"launched:{best_vehicle_name}:{','.join(manifest)}"
-                ]
-                launch_state = SimState(
+                new_last_launch_crew = dict(last_launch)
+                new_last_launch_crew[cv.name] = period
+
+                crew_actions = actions + [f"crew_launch:{cv.name}:{crew_count}"]
+                crew_state_new = SimState(
                     modules_built=new_modules_built,
-                    crew_vehicles=active_crew,
-                    cargo_in_transit=new_transit,
+                    crew_vehicles=new_crew,
+                    cargo_in_transit=remaining_transit,
                     cargo_at_site=state.cargo_at_site,
-                    tugs_available=state.tugs_available,
+                    tugs_available=new_tugs,
                     period=period + 1,
                     total_launches=state.total_launches + 1,
-                    total_cost_million=state.total_cost_million + cost,
+                    total_cost_million=state.total_cost_million + cv.cost_per_launch_million,
                     cumulative_risk=state.cumulative_risk + risk,
                 )
                 successors.append(
-                    (launch_state, delivered_fs, new_wip, launch_actions)
+                    (crew_state_new, delivered_fs, new_wip, new_last_launch_crew, crew_actions)
                 )
-
-        # --- Try sending crew if none on-site ---
-        if total_crew == 0 and self.config.crew_vehicles:
-            cv = self.config.crew_vehicles[0]
-            crew_count = min(cv.max_crew, 5)
-            rotation_periods = cv.max_mission_duration_days // self.config.period_days
-            new_crew = active_crew + [
-                DockedCrewVehicle(cv.name, crew_count, rotation_periods)
-            ]
-
-            crew_cost = 200.0
-            for cargo_v in self.config.cargo_vehicles:
-                if cargo_v.l4_direct:
-                    crew_cost = cargo_v.cost_per_launch_million
-                    break
-
-            crew_actions = actions + [f"crew_launch:{cv.name}:{crew_count}"]
-            crew_state_new = SimState(
-                modules_built=new_modules_built,
-                crew_vehicles=new_crew,
-                cargo_in_transit=remaining_transit,
-                cargo_at_site=state.cargo_at_site,
-                tugs_available=state.tugs_available,
-                period=period + 1,
-                total_launches=state.total_launches + 1,
-                total_cost_million=state.total_cost_million + crew_cost,
-                cumulative_risk=state.cumulative_risk + risk,
-            )
-            successors.append(
-                (crew_state_new, delivered_fs, new_wip, crew_actions)
-            )
 
         # --- Combined: launch cargo + crew ---
         if (
@@ -380,49 +493,57 @@ class DPSolver:
             and self._delivery_cache
             and self.config.crew_vehicles
         ):
-            cv = self.config.crew_vehicles[0]
-            crew_count = min(cv.max_crew, 5)
-            rotation_periods = cv.max_mission_duration_days // self.config.period_days
-            best_vehicle_name = max(
-                self._delivery_cache, key=lambda k: self._delivery_cache[k][0]
-            )
-            best_mass, transit_p, cost = self._delivery_cache[best_vehicle_name]
-
-            manifest = []
-            mass_remaining = best_mass
-            for mid in sorted(launchable):
-                mod = self.dag.get_module(mid)
-                if mod.mass_kg <= mass_remaining:
-                    manifest.append(mid)
-                    mass_remaining -= mod.mass_kg
-
-            if manifest:
-                crew_cost = 200.0
-                for cargo_v in self.config.cargo_vehicles:
-                    if cargo_v.l4_direct:
-                        crew_cost = cargo_v.cost_per_launch_million
-                        break
-
-                combined_state = SimState(
-                    modules_built=new_modules_built,
-                    crew_vehicles=active_crew
-                    + [DockedCrewVehicle(cv.name, crew_count, rotation_periods)],
-                    cargo_in_transit=remaining_transit
-                    + [CargoInTransit(tuple(manifest), period + transit_p, cost)],
-                    cargo_at_site=state.cargo_at_site,
-                    tugs_available=state.tugs_available,
-                    period=period + 1,
-                    total_launches=state.total_launches + 2,
-                    total_cost_million=state.total_cost_million + cost + crew_cost,
-                    cumulative_risk=state.cumulative_risk + risk,
+            eligible_cargo_c = {
+                name: data
+                for name, data in self._delivery_cache.items()
+                if period - last_launch.get(name, -999) >= self.config.pad_turnaround_periods
+            }
+            eligible_crew_c = [
+                cv for cv in self.config.crew_vehicles
+                if period - last_launch.get(cv.name, -999) >= self.config.pad_turnaround_periods
+            ]
+            if eligible_cargo_c and eligible_crew_c:
+                cv = min(eligible_crew_c, key=lambda v: v.cost_per_launch_million)
+                crew_count = min(cv.max_crew, 5)
+                rotation_periods = cv.max_mission_duration_days // self.config.period_days
+                best_vehicle_name = max(
+                    eligible_cargo_c, key=lambda k: eligible_cargo_c[k][0]
                 )
-                combined_actions = actions + [
-                    f"launched:{best_vehicle_name}:{','.join(manifest)}",
-                    f"crew_launch:{cv.name}:{crew_count}",
-                ]
-                successors.append(
-                    (combined_state, delivered_fs, new_wip, combined_actions)
-                )
+                best_mass, transit_p, cost = eligible_cargo_c[best_vehicle_name]
+
+                manifest = []
+                mass_remaining = best_mass
+                for mid in sorted(launchable):
+                    mod = self.dag.get_module(mid)
+                    if mod.mass_kg <= mass_remaining:
+                        manifest.append(mid)
+                        mass_remaining -= mod.mass_kg
+
+                if manifest:
+                    new_last_launch_combined = dict(last_launch)
+                    new_last_launch_combined[best_vehicle_name] = period
+                    new_last_launch_combined[cv.name] = period
+
+                    combined_state = SimState(
+                        modules_built=new_modules_built,
+                        crew_vehicles=active_crew
+                        + [DockedCrewVehicle(cv.name, crew_count, rotation_periods)],
+                        cargo_in_transit=remaining_transit
+                        + [CargoInTransit(tuple(manifest), period + transit_p, cost)],
+                        cargo_at_site=state.cargo_at_site,
+                        tugs_available=new_tugs,
+                        period=period + 1,
+                        total_launches=state.total_launches + 2,
+                        total_cost_million=state.total_cost_million + cost + cv.cost_per_launch_million,
+                        cumulative_risk=state.cumulative_risk + risk,
+                    )
+                    combined_actions = actions + [
+                        f"launched:{best_vehicle_name}:{','.join(manifest)}",
+                        f"crew_launch:{cv.name}:{crew_count}",
+                    ]
+                    successors.append(
+                        (combined_state, delivered_fs, new_wip, new_last_launch_combined, combined_actions)
+                    )
 
         return successors
 

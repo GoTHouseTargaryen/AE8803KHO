@@ -39,9 +39,21 @@ class TestCrewWork:
             max_pairs_per_iva=2,
             max_eva_hours_per_session=6,
             eva_days_per_period=7,
+            duty_cycle=1.0,  # isolate pair/hours logic; duty cycle tested separately
         )
-        # 2 EVA pairs * 6 hours/session * 7 days = 84 hours
+        # 2 EVA pairs * 6 hours/session * 7 days = 84 hours (before duty cycle)
         assert cs.eva_hours_per_period == 84
+
+    def test_eva_hours_with_duty_cycle(self):
+        cs = CrewState(
+            total_crew=5,
+            max_pairs_per_iva=2,
+            max_eva_hours_per_session=6,
+            eva_days_per_period=7,
+            duty_cycle=0.6,
+        )
+        # 2 EVA pairs * 6 hours/session * 7 days * 0.6 duty cycle = 50.4 hours
+        assert abs(cs.eva_hours_per_period - 50.4) < 0.01
 
     def test_no_crew_zero_hours(self):
         cs = CrewState(total_crew=0, max_pairs_per_iva=2)
