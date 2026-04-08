@@ -1,0 +1,34 @@
+\section{Conclusion}
+
+This paper presented a mission planning simulation tool for the
+in-space assembly of large spacecraft at Earth-Sun L4. The optimizer
+formulates the campaign as a multi-objective dynamic programming
+problem over a time-expanded network, with forward beam search
+pruning to manage the exponential state space. Eight constraints
+are enforced: assembly DAG precedence, EVA pair and IVA support
+allocation, a 60\% crew duty cycle, scale-adaptive proximity
+congestion, partial assembly work-in-progress tracking, pad
+turnaround intervals, crew vehicle cost modeling, and cargo
+vehicle proximity contribution during unloading.
+
+Results across the scenarios presented demonstrate that the
+choice of propulsion architecture (Chemical vs.\ NEP/Fusion)
+has a larger effect on program cost and module mass than on
+total mission duration, which is primarily determined by crew
+rotation strategy and the number of concurrent cargo deliveries.
+The Pareto frontier reveals that modest weight shifts toward
+minimizing time require only small increases in launch count,
+while cost-minimal solutions incur substantial duration penalties.
+
+\textbf{Limitations.} The beam search is a heuristic and
+does not guarantee global optimality. Delta-$v$ values are
+computed from simplified Hohmann and WSB approximations rather
+than full ephemeris-based trajectory optimization. Assembly
+durations are treated as deterministic; no failure modes or
+schedule margin is modeled.
+
+\textbf{Future Work.} Higher-fidelity orbital mechanics
+(e.g., patched-conic or GMAT integration), stochastic assembly
+duration distributions, multi-site assembly staging through
+cislunar Gateway, in-situ propellant production at L4, and
+refueling depot optimization are natural extensions of this work.
