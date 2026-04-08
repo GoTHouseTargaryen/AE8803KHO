@@ -1,0 +1,96 @@
+\section{System Description}
+
+\subsection{Architecture Overview}
+
+The simulation tool follows a client-server architecture. A Python
+simulation core is exposed via a Flask REST API; a Next.js web
+application running in the browser consumes the API for configuration,
+optimization, and results visualization. Figure~\ref{fig:arch} shows
+the top-level system architecture.
+
+\begin{figure}[h]
+  \centering
+  \input{figures/architecture}
+  \caption{System architecture. The Flask API exposes five
+           endpoints consumed by the Next.js frontend.}
+  \label{fig:arch}
+\end{figure}
+
+\subsection{Module Catalog}
+
+Fourteen module types spanning six subsystem categories are
+defined in the catalog. Table~\ref{tab:modules} lists representative
+mass and assembly parameters.
+
+\begin{table}[h]
+\centering
+\caption{Module Catalog (Selected Entries)}
+\label{tab:modules}
+\begin{tabular}{llrrr}
+\toprule
+Module & Category & Mass (kg) & Asm.\ Hours & Crew Req. \\
+\midrule
+Truss Section       & Structural  & 5{,}000  & 48  & No  \\
+Habitat Block       & Habitation  & 20{,}000 & 120 & Yes \\
+Solar Array Unit    & Power       & 6{,}000  & 36  & No  \\
+Fission Reactor     & Power       & 15{,}000 & 100 & Yes \\
+Fusion Reactor      & Power       & 40{,}000 & 160 & Yes \\
+Chemical (LOX/LH2)  & Propulsion  & 15{,}000 & 80  & Yes \\
+NTP Engine          & Propulsion  & 25{,}000 & 120 & Yes \\
+NEP Drive           & Propulsion  & 30{,}000 & 160 & Yes \\
+SEP Drive           & Propulsion  & 10{,}000 & 100 & Yes \\
+Avionics \& Comms   & Avionics    & 4{,}000  & 60  & Yes \\
+Shielding Section   & Specialty   & 4{,}000  & 30  & No  \\
+Robotic Arm Station & Specialty   & 2{,}500  & 48  & Yes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Assembly DAG and Parametric Generator}
+
+Module interdependencies are encoded in a directed acyclic graph
+(DAG). A parametric generator maps high-level spacecraft
+specifications (total length, propulsion type, power type) to a
+topologically valid module set. Key ordering rules enforced by the
+DAG are: truss sections precede all modules that mount to them;
+power systems precede dependent propulsion (NEP requires
+Fission/Fusion; SEP requires Solar Arrays); at least one
+Airlock/Docking Node must be complete before crew can board.
+
+\subsection{Vehicle Catalog}
+
+Nine cargo launch vehicles, four crew vehicles, and three transfer
+stages are cataloged. Table~\ref{tab:vehicles} lists cargo vehicles.
+
+\begin{table}[h]
+\centering
+\caption{Cargo Launch Vehicle Catalog}
+\label{tab:vehicles}
+\begin{tabular}{llrrr}
+\toprule
+Vehicle & Nation & LEO (kg) & Cost (\$M) & L4 Direct \\
+\midrule
+Starship        & USA     & 150{,}000 & 100    & Yes \\
+SLS Block 2     & USA     & 130{,}000 & 2{,}000 & Yes \\
+Falcon Heavy    & USA     & 63{,}800  & 150    & No  \\
+New Glenn       & USA     & 45{,}000  & 70     & No  \\
+Vulcan Centaur  & USA     & 27{,}200  & 110    & No  \\
+Ariane 6        & Europe  & 21{,}600  & 115    & No  \\
+KSLV-III        & S.Korea & 10{,}000  & 80     & No  \\
+GSLV Mk III     & India   & 10{,}000  & 50     & No  \\
+H3              & Japan   & 6{,}500   & 50     & No  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Web Application}
+
+The Next.js frontend provides: a configuration panel for
+spacecraft parametric definition, vehicle selection, objective
+weight sliders, and DP solver parameters; a results dashboard
+with a Gantt chart, resource utilization charts, cost breakdown,
+and 2D assembly progression view; real-time playback controls
+with variable speed; and multi-scenario Pareto frontier
+visualization. The \texttt{/api/report} endpoint accepts tagged
+runs and returns a compiled PDF of this document with
+auto-generated results sections.
