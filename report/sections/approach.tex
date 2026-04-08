@@ -1,0 +1,205 @@
+\section{Approach}
+
+\subsection{Time-Expanded Network and DP Formulation}
+
+The assembly campaign is modeled as a finite-horizon Markov
+decision process over a time-expanded network. Decision epochs are
+discretized into configurable periods of length $\Delta t$
+(default: 7 days). The system state at epoch $t$ is
+
+\begin{equation}
+  S(t) = \bigl\{\mathcal{M}(t),\; \mathcal{C}(t),\;
+                \mathcal{Q}(t),\; n_{\mathrm{tugs}}(t)\bigr\}
+\end{equation}
+
+\noindent where $\mathcal{M}(t)$ is the set of completed modules,
+$\mathcal{C}(t)$ is the set of docked crew vehicles with their
+remaining rotation periods, $\mathcal{Q}(t)$ is the cargo-in-transit
+queue with arrival times, and $n_{\mathrm{tugs}}(t)$ is the number
+of reusable transfer stages available at LEO.
+
+At each epoch the optimizer selects a decision
+$D(t) = \{\text{launches},\;\text{crew allocation},\;
+\text{assembly tasks},\;\text{tug assignments}\}$
+that transitions the system to state $S'$. The Bellman optimality
+equation is
+
+\begin{equation}
+  V(S,t) = \min_{D \in \mathcal{D}(S,t)}
+            \bigl[\, c(S, D, t) + V(S', t+1) \,\bigr]
+\end{equation}
+
+\subsection{Multi-Objective Cost Function}
+
+Three objectives are minimized simultaneously via a weighted sum
+with safe normalization:
+
+\begin{equation}
+  J = w_1 \frac{N_{\mathrm{launches}}}{N_{\mathrm{launches}}^{\max}}
+    + w_2 \frac{T}{T^{\max}}
+    + w_3 \frac{C}{C^{\max}}
+  \label{eq:cost}
+\end{equation}
+
+\noindent where weights $w_1, w_2, w_3 \geq 0$ are user-adjustable.
+Upper bounds are $N_{\mathrm{launches}}^{\max} = 2|\mathcal{M}_{\mathrm{total}}|$,
+$T^{\max} = T_{\mathrm{horizon}}$, and
+$C^{\max} = \$2{,}000|\mathcal{M}_{\mathrm{total}}|$\,M.
+Safe normalization returns 0 when the upper bound is zero.
+
+\subsection{Transfer Model}
+
+Payload mass delivered to L4 is computed via the Tsiolkovsky
+rocket equation applied to the LEO-to-L4 transfer:
+
+\begin{equation}
+  m_{\mathrm{delivered}} = m_{\mathrm{LEO}}
+    \cdot \exp\!\left(\frac{-\Delta v}{I_{sp}\, g_0}\right)
+  \label{eq:rocket}
+\end{equation}
+
+\noindent with $g_0 = 9.807 \times 10^{-3}$\,km/s$^2$. Two
+transfer options are modeled: a direct Hohmann-like transfer
+($\Delta v = 4.1$\,km/s, 60-day transit) and a low-energy
+weak-stability-boundary (WSB) transfer ($\Delta v = 3.8$\,km/s,
+120-day transit)~\cite{belbruno_wbs}.
+
+For LEO-only vehicles that require a transfer stage of dry mass
+$m_d$ and propellant mass $m_p$, the tug mass ratio $R =
+\exp(\Delta v / I_{sp} g_0)$ constrains maximum deliverable cargo:
+
+\begin{align}
+  m_{\mathrm{cargo,max}} &= \frac{R\,m_d - (m_d + m_p)}{1 - R}
+  \label{eq:tug} \\
+  m_{\mathrm{delivered}} &= \min\!\left(m_{\mathrm{payload}},\;
+                               m_{\mathrm{cargo,max}}\right)
+\end{align}
+
+\subsection{Crew Model}
+
+All crew across docked vehicles form a single shared pool:
+
+\begin{equation}
+  n_{\mathrm{crew}} = \sum_{v \in \mathcal{C}(t)} n_v
+\end{equation}
+
+EVA operations require a buddy system (pairs) and intravehicular
+activity (IVA) monitors. The stable allocation is found
+iteratively:
+
+\begin{equation}
+  n_{\mathrm{IVA}} = \left\lceil
+    \frac{n_{\mathrm{EVA\,pairs}}}{k_{\mathrm{IVA}}}
+  \right\rceil, \quad
+  n_{\mathrm{EVA\,pairs}} = \left\lfloor
+    \frac{n_{\mathrm{crew}} - n_{\mathrm{IVA}}}{2}
+  \right\rfloor
+  \label{eq:eva}
+\end{equation}
+
+\noindent where $k_{\mathrm{IVA}}$ is the maximum EVA pairs per
+IVA monitor (default: 2). Productive assembly hours per period
+are reduced by the duty cycle $\eta_d = 0.6$ to account for
+rest and maintenance overhead:
+
+\begin{equation}
+  H_{\mathrm{EVA}} = n_{\mathrm{EVA\,pairs}} \cdot h_{\mathrm{session}}
+                     \cdot d_{\mathrm{period}} \cdot \eta_d
+  \label{eq:crew_hours}
+\end{equation}
+
+Robotic arm stations operate continuously (24/7) but with a
+time penalty $\eta_r = 1.5$ relative to crew EVA:
+
+\begin{equation}
+  H_{\mathrm{robotic}} = \frac{n_{\mathrm{arms}} \cdot h_{\mathrm{period}}}{\eta_r}
+\end{equation}
+
+Each crew vehicle trades unused crew capacity for cargo mass:
+
+\begin{equation}
+  m_{\mathrm{cargo}} = m_{\mathrm{capacity}}
+                       - n_{\mathrm{crew}} \cdot m_{\mathrm{per\,crew}}
+\end{equation}
+
+\subsection{Proximity Operations and Congestion Model}
+
+Simultaneous vehicle presence at the assembly site increases
+coordination overhead, reducing effective assembly throughput.
+A scale-adaptive penalty function is applied to available crew
+and robotic hours each period:
+
+\begin{equation}
+  \pi(n,\,p) = 1 + \frac{\alpha\,(n-1)^{\beta}}{C(p)}, \quad
+  C(p) = C_{\mathrm{base}} + (C_{\mathrm{max}} - C_{\mathrm{base}})\,p
+  \label{eq:penalty}
+\end{equation}
+
+\noindent where $n$ is the number of vehicles in proximity
+(crew vehicles plus arriving cargo vehicles), $p =
+|\mathcal{M}_{\mathrm{built}}| / |\mathcal{M}_{\mathrm{total}}|$
+is fractional build progress, and default parameters are
+$\alpha = 0.1$, $\beta = 1.5$, $C_{\mathrm{base}} = 2$,
+$C_{\mathrm{max}} = 10$. Effective assembly hours are:
+
+\begin{equation}
+  H_{\mathrm{EVA,eff}} = \frac{H_{\mathrm{EVA}}}{\pi(n,p)}, \quad
+  H_{\mathrm{robotic,eff}} = \frac{H_{\mathrm{robotic}}}{\pi(n,p)}
+\end{equation}
+
+Cumulative collision risk is tracked as a safety metric:
+
+\begin{equation}
+  \mathcal{R} = \sum_{t=0}^{T} \kappa \cdot \binom{n(t)}{2} \cdot \Delta t
+  \label{eq:risk}
+\end{equation}
+
+\subsection{Partial Assembly (Work-in-Progress)}
+
+Modules whose assembly hours exceed one period's capacity are
+carried forward as work-in-progress (WIP). Remaining hours
+$h_r$ are updated each period:
+
+\begin{equation}
+  h_r^{(t+1)} = \max\!\left(0,\;
+    h_r^{(t)} - \min\!\left(h_r^{(t)},\; H_{\mathrm{available}}^{(t)}\right)
+  \right)
+\end{equation}
+
+\noindent A module is marked complete when $h_r \leq \varepsilon$
+(default $\varepsilon = 0.01$\,h).
+
+\subsection{Pad Turnaround Constraint}
+
+Each launch vehicle $v$ is subject to a minimum inter-launch
+interval to model launch pad refurbishment:
+
+\begin{equation}
+  t - t_{\mathrm{last}}(v) \geq \Delta t_{\mathrm{pad}},
+  \quad \forall\, v \in \mathcal{V}_{\mathrm{cargo}} \cup
+  \mathcal{V}_{\mathrm{crew}}
+\end{equation}
+
+\noindent Default: $\Delta t_{\mathrm{pad}} = 2$ periods (14 days).
+
+\subsection{Beam Search Pruning}
+
+Exact DP over the assembled module bitmask is intractable for
+structures with $|\mathcal{M}_{\mathrm{total}}| \geq 20$
+($2^{50}$ states for a 50-module spacecraft). Forward beam search
+retains only the top-$K$ states per epoch ranked by the
+progress heuristic:
+
+\begin{equation}
+  \phi(S) = 10\,|\mathcal{M}_{\mathrm{built}}|
+          + 3\,|\mathcal{D} \setminus \mathcal{M}_{\mathrm{built}}|
+          + |\mathcal{Q}|
+          + (5 + 3r)\cdot\mathbf{1}[n_{\mathrm{crew}}>0]
+          + 0.5\,|\mathcal{W}|
+  \label{eq:phi}
+\end{equation}
+
+\noindent where $r = |\mathrm{avail}(\mathcal{M}_{\mathrm{built}})
+\cap \mathcal{D}|$ is modules ready to assemble on-site, and
+$\mathcal{W}$ is the current WIP set. Default beam width:
+$K = 100$.
