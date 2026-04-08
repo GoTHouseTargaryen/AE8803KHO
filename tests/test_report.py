@@ -84,3 +84,36 @@ class TestChartGeneration:
             out = Path(tmpdir) / "gantt.pgf"
             generate_gantt([], str(out))
             assert out.exists()
+
+
+from simulation.report_builder import render_results_tex, build_report
+
+
+class TestReportBuilder:
+    def test_render_results_tex_single_run(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "results.tex"
+            render_results_tex([SAMPLE_RUN], str(out))
+            assert out.exists()
+            content = out.read_text()
+            assert "Test Run" in content
+            assert "Total Launches" in content
+            assert r"\section{Results" in content
+
+    def test_render_results_tex_two_runs_has_pareto(self):
+        run2 = {**SAMPLE_RUN, "label": "Run 2",
+                "result": {**SAMPLE_RESULT, "total_launches": 5}}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "results.tex"
+            render_results_tex([SAMPLE_RUN, run2], str(out))
+            content = out.read_text()
+            assert "Pareto" in content
+            assert "Multi-Scenario" in content
+
+    def test_render_results_tex_escapes_underscores(self):
+        run = {**SAMPLE_RUN, "label": "My_Test_Run"}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = Path(tmpdir) / "results.tex"
+            render_results_tex([run], str(out))
+            content = out.read_text()
+            assert r"My\_Test\_Run" in content or "My" in content
