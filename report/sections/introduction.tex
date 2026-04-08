@@ -1,0 +1,46 @@
+\section{Introduction}
+
+The assembly of large space structures in orbit has been demonstrated
+operationally through programs such as the International Space
+Station (ISS), which required over 40 assembly flights across more
+than a decade~\cite{nasa_iss_assembly}. However, the scale of
+structures envisioned for future missions---kilometer-class solar
+power satellites, large interferometric telescope arrays, and
+interplanetary propulsion stages---far exceeds what was required for
+the ISS and demands a systematic optimization approach to campaign
+planning~\cite{wertz_larson}.
+
+The Earth-Sun L4 Lagrange point offers several advantages as an
+assembly site for large deep-space vehicles. Its gravitational
+stability (the point co-rotates with Earth at 1\,AU from the Sun)
+eliminates the stationkeeping penalty associated with more
+energetically expensive halo orbits~\cite{belbruno_wbs}.
+Continuous solar illumination supports high solar array output,
+and the separation from low-Earth orbit (LEO) debris belts reduces
+shielding requirements for long-duration operations. The transit
+distance of approximately 1\,AU, however, imposes significant
+transfer $\Delta v$ requirements (3.8--4.1\,km/s from LEO) and
+transit times of 60--120 days, making resupply logistics a primary
+cost driver.
+
+Prior work on space logistics optimization has applied
+time-expanded network models and dynamic programming to station
+resupply~\cite{ho_logistics} and propellant depot
+operations~\cite{ho_depot}. This paper extends those foundations
+to the on-orbit assembly problem, incorporating a multi-objective
+formulation, crew rotation constraints, proximity operations
+penalties, and a multi-nation vehicle catalog reflecting the
+emerging Artemis Accords partnership structure.
+
+The specific contributions of this work are:
+\begin{enumerate}
+  \item A dynamic programming formulation over a time-expanded
+        network for assembly campaign optimization, with forward
+        beam search to manage state-space complexity;
+  \item A multi-objective cost function with user-adjustable weights
+        over launches, time, and program cost, enabling Pareto
+        frontier analysis;
+  \item An interactive web-based simulation tool supporting
+        parametric spacecraft configuration, real-time playback,
+        and one-click PDF report generation.
+\end{enumerate}

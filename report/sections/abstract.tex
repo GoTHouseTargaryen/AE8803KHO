@@ -1,0 +1,18 @@
+The in-space assembly of kilometer-scale spacecraft represents a
+critical enabling capability for future deep-space exploration,
+space-based solar power, and large-aperture science missions.
+This paper presents a mission planning simulation tool for the
+on-orbit assembly of a modular spacecraft at the Earth-Sun L4
+Lagrange point, leveraging assets from Artemis Accords partner
+nations. The optimizer formulates assembly scheduling as a
+multi-objective dynamic programming problem over a time-expanded
+network, minimizing a weighted combination of total launches,
+assembly duration, and program cost. Beam search pruning
+constrains the state-space to tractable size while retaining
+near-optimal solutions. A Flask REST API exposes the simulation
+engine to a Next.js web application that provides interactive
+configuration, real-time playback of the assembly campaign, and
+multi-scenario Pareto frontier analysis. Results demonstrate
+the trade-off sensitivity between launch frequency, crew rotation
+strategy, and propulsion architecture selection for spacecraft
+ranging from 0.5\,km to 2\,km in length.
