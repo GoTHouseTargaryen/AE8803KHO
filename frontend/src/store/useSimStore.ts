@@ -7,6 +7,8 @@ import type {
   ObjectiveWeights,
   ProximityConfig,
   SimulationResult,
+  TaggedRun,
+  SimulationRequest,
 } from "@/lib/types";
 
 interface SimStore {
@@ -30,6 +32,11 @@ interface SimStore {
   currentPeriod: number;
   isPlaying: boolean;
   playbackSpeed: number;
+  // Report tagging
+  taggedRuns: TaggedRun[];
+  reportStatus: "idle" | "compiling" | "done" | "error";
+  reportUrl: string | null;
+  reportError: string | null;
   setCatalogs: (cargo: CargoVehicle[], crew: CrewVehicle[], stages: TransferStage[]) => void;
   setSelectedCargo: (names: string[]) => void;
   setSelectedCrew: (names: string[]) => void;
@@ -48,6 +55,13 @@ interface SimStore {
   setCurrentPeriod: (period: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
+  // Report actions
+  addTaggedRun: (run: TaggedRun) => void;
+  removeTaggedRun: (id: string) => void;
+  updateTaggedRunLabel: (id: string, label: string) => void;
+  setReportStatus: (status: "idle" | "compiling" | "done" | "error") => void;
+  setReportUrl: (url: string | null) => void;
+  setReportError: (error: string | null) => void;
 }
 
 export const useSimStore = create<SimStore>((set) => ({
@@ -71,6 +85,10 @@ export const useSimStore = create<SimStore>((set) => ({
   currentPeriod: 0,
   isPlaying: false,
   playbackSpeed: 1,
+  taggedRuns: [],
+  reportStatus: "idle",
+  reportUrl: null,
+  reportError: null,
   setCatalogs: (cargo, crew, stages) => set({ cargoVehicles: cargo, crewVehicles: crew, transferStages: stages }),
   setSelectedCargo: (names) => set({ selectedCargo: names }),
   setSelectedCrew: (names) => set({ selectedCrew: names }),
@@ -89,4 +107,13 @@ export const useSimStore = create<SimStore>((set) => ({
   setCurrentPeriod: (period) => set({ currentPeriod: period }),
   setIsPlaying: (playing) => set({ isPlaying: playing }),
   setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
+  addTaggedRun: (run) => set((s) => ({ taggedRuns: [...s.taggedRuns, run] })),
+  removeTaggedRun: (id) => set((s) => ({ taggedRuns: s.taggedRuns.filter((r) => r.id !== id) })),
+  updateTaggedRunLabel: (id, label) =>
+    set((s) => ({
+      taggedRuns: s.taggedRuns.map((r) => (r.id === id ? { ...r, label } : r)),
+    })),
+  setReportStatus: (status) => set({ reportStatus: status }),
+  setReportUrl: (url) => set({ reportUrl: url }),
+  setReportError: (error) => set({ reportError: error }),
 }));

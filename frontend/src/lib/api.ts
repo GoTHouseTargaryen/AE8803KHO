@@ -8,6 +8,7 @@ import type {
   SimulationResult,
   ParetoRequest,
   ParetoResult,
+  TaggedRun,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -62,4 +63,17 @@ export async function runPareto(request: ParetoRequest): Promise<ParetoResult> {
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+export async function compileReport(runs: TaggedRun[]): Promise<Blob> {
+  const resp = await fetch(`${API_BASE}/api/report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ runs }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Report compilation failed: ${text}`);
+  }
+  return resp.blob();
 }

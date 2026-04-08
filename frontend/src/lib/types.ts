@@ -115,3 +115,15 @@ export interface ParetoResult {
 export interface ParetoRequest extends Omit<SimulationRequest, "weights"> {
   pareto_steps?: number;
 }
+
+export interface TaggedRun {
+  id: string;
+  label: string;
+  config: SimulationRequest;
+  result: SimulationResult;
+  taggedAt: string;
+}
+
+export interface ReportRequest {
+  runs: TaggedRun[];
+}
