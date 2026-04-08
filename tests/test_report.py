@@ -117,3 +117,31 @@ class TestReportBuilder:
             render_results_tex([run], str(out))
             content = out.read_text()
             assert r"My\_Test\_Run" in content or "My" in content
+
+
+from simulation.app import create_app as create_flask_app
+
+
+class TestReportEndpoint:
+    @pytest.fixture
+    def client(self):
+        app = create_flask_app()
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            yield c
+
+    def test_report_endpoint_no_runs_returns_400(self, client):
+        resp = client.post(
+            "/api/report",
+            json={"runs": []},
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+    def test_report_endpoint_missing_runs_key_returns_400(self, client):
+        resp = client.post(
+            "/api/report",
+            json={},
+            content_type="application/json",
+        )
+        assert resp.status_code == 400

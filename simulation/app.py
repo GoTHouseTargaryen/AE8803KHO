@@ -14,6 +14,7 @@ from simulation.proximity import ProximityModel
 from simulation.transfer import TransferModel
 from simulation.solver.objectives import ObjectiveWeights
 from simulation.solver.dp_solver import DPSolver, SolverConfig
+from simulation.report_builder import build_report
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 
@@ -226,6 +227,28 @@ def create_app() -> Flask:
                 pareto.append(p)
 
         return jsonify({"points": pareto, "all_points": points})
+
+    @app.route("/api/report", methods=["POST"])
+    def compile_report():
+        body = request.get_json()
+        runs = body.get("runs") if body else None
+
+        if not runs:
+            return jsonify({"error": "No runs provided. Tag at least one simulation run."}), 400
+
+        try:
+            pdf_bytes = build_report(runs)
+        except FileNotFoundError as exc:
+            return jsonify({"error": str(exc)}), 503
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 500
+
+        from flask import Response
+        return Response(
+            pdf_bytes,
+            mimetype="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="report.pdf"'},
+        )
 
     return app
 
