@@ -1,6 +1,7 @@
 "use client";
 
 import { useSimStore } from "@/store/useSimStore";
+import TagRunButton from "./TagRunButton";
 
 export default function MetricsSummary() {
   const result = useSimStore((s) => s.result);
@@ -15,13 +16,16 @@ export default function MetricsSummary() {
   ];
 
   return (
-    <div className="grid grid-cols-5 gap-2 mb-4">
-      {metrics.map((m) => (
-        <div key={m.label} className="bg-gray-800 rounded p-3 text-center">
-          <div className="text-xs text-gray-400">{m.label}</div>
-          <div className="text-lg font-bold text-white">{m.value}</div>
-        </div>
-      ))}
+    <div className="mb-4">
+      <div className="grid grid-cols-5 gap-2">
+        {metrics.map((m) => (
+          <div key={m.label} className="bg-gray-800 rounded p-3 text-center">
+            <div className="text-xs text-gray-400">{m.label}</div>
+            <div className="text-lg font-bold text-white">{m.value}</div>
+          </div>
+        ))}
+      </div>
+      <TagRunButton />
     </div>
   );
 }
