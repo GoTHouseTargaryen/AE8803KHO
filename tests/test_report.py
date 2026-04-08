@@ -119,6 +119,8 @@ class TestReportBuilder:
             assert r"My\_Test\_Run" in content or "My" in content
 
 
+from unittest.mock import patch
+
 from simulation.app import create_app as create_flask_app
 
 
@@ -145,3 +147,23 @@ class TestReportEndpoint:
             content_type="application/json",
         )
         assert resp.status_code == 400
+
+
+class TestBuildReportPipeline:
+    def test_build_report_raises_if_no_pdflatex(self):
+        with patch("shutil.which", return_value=None):
+            with pytest.raises(FileNotFoundError, match="pdflatex"):
+                build_report([SAMPLE_RUN])
+
+    def test_render_results_and_charts_without_pdflatex(self):
+        """Verify chart generation + template rendering succeed independently of pdflatex."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gantt_out = Path(tmpdir) / "gantt.pgf"
+            generate_gantt(SAMPLE_TIMELINE, str(gantt_out))
+            assert gantt_out.exists()
+
+            results_out = Path(tmpdir) / "results.tex"
+            render_results_tex([SAMPLE_RUN], str(results_out))
+            content = results_out.read_text()
+            assert "Test Run" in content
+            assert r"\section{Results" in content
