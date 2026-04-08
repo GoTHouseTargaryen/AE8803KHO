@@ -1,0 +1,138 @@
+\section{Results and Discussion}
+
+This section presents results from
+{{ runs | length }} simulation scenario{{ 's' if runs | length > 1 else '' }}
+tagged for analysis. Each scenario was optimized using the forward beam search
+solver described in Section~II with beam width $K = 100$.
+
+{% for run in runs %}
+\subsection{ {{- run.label | replace('_', '\_') -}} }
+
+Table~\ref{tab:metrics_{{ loop.index }}} summarizes the key performance
+metrics for this scenario.
+
+\begin{table}[h]
+\centering
+\caption{Key Metrics --- {{ run.label | replace('_', '\_') }}}
+\label{tab:metrics_{{ loop.index }}}
+\begin{tabular}{lr}
+\toprule
+Metric & Value \\
+\midrule
+Total Launches        & {{ run.result.total_launches }} \\
+Mission Duration      & {{ run.result.total_periods }} periods
+                        ({{ "%.1f"|format(run.result.total_periods * 7 / 30) }} months) \\
+Total Program Cost    & \${{ "%.0f"|format(run.result.total_cost_million) }}\,M \\
+Modules Completed     & {{ run.result.modules_completed }} \\
+Cumulative Risk       & {{ "%.4f"|format(run.result.cumulative_risk) }} \\
+Spacecraft Length     & {{ run.config.spacecraft.length_km }}\,km \\
+Propulsion            & {{ run.config.spacecraft.propulsion_type }} \\
+Power System          & {{ run.config.spacecraft.power_type }} \\
+Objective Weights ($w_1, w_2, w_3$) &
+  ({{ run.config.weights.w_launches }},
+   {{ run.config.weights.w_time }},
+   {{ run.config.weights.w_cost }}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The assembly campaign for this scenario completed
+{{ run.result.modules_completed }} modules in
+{{ run.result.total_periods }} periods
+({{ "%.1f"|format(run.result.total_periods * 7 / 30) }}~months),
+requiring {{ run.result.total_launches }} launches at a total
+program cost of \${{ "%.0f"|format(run.result.total_cost_million) }}\,M.
+The cumulative proximity collision risk metric accumulated to
+{{ "%.4f"|format(run.result.cumulative_risk) }} over the campaign.
+
+Figure~\ref{fig:gantt_{{ loop.index }}} shows the assembly
+timeline as a Gantt chart. Each horizontal bar represents an
+assembly action or launch event, color-coded by type.
+
+\begin{figure}[h]
+  \centering
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_gantt}}
+  \caption{Assembly timeline Gantt chart ---
+           {{ run.label | replace('_', '\_') }}.}
+  \label{fig:gantt_{{ loop.index }}}
+\end{figure}
+
+Figure~\ref{fig:resources_{{ loop.index }}} shows crew count and
+vehicle count at the assembly site over time. The proximity
+congestion penalty $\pi(n, p)$ from Eq.~(\ref{eq:penalty}) is
+driven by vehicle count; the resulting reduction in effective
+assembly hours is evident in periods with simultaneous crew
+rotations and cargo deliveries.
+
+\begin{figure}[h]
+  \centering
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_resources}}
+  \caption{Resource utilization over time ---
+           {{ run.label | replace('_', '\_') }}.}
+  \label{fig:resources_{{ loop.index }}}
+\end{figure}
+
+Figure~\ref{fig:cost_{{ loop.index }}} shows the cost breakdown
+by launch vehicle.
+
+\begin{figure}[h]
+  \centering
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_cost}}
+  \caption{Cost breakdown by vehicle ---
+           {{ run.label | replace('_', '\_') }}.}
+  \label{fig:cost_{{ loop.index }}}
+\end{figure}
+
+Figure~\ref{fig:modules_{{ loop.index }}} shows cumulative
+modules completed over time, illustrating assembly throughput
+and the impact of crew rotation gaps on progress rate.
+
+\begin{figure}[h]
+  \centering
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_modules}}
+  \caption{Modules completed over time ---
+           {{ run.label | replace('_', '\_') }}.}
+  \label{fig:modules_{{ loop.index }}}
+\end{figure}
+
+{% endfor %}
+
+{% if runs | length >= 2 %}
+\subsection{Multi-Scenario Comparison and Pareto Frontier}
+
+Figure~\ref{fig:pareto} plots the Pareto frontier across all
+{{ runs | length }} tagged scenarios in the (total launches,
+mission duration) objective space, colored by total program
+cost. Non-dominated solutions form the trade-off surface
+between launch frequency and assembly duration.
+
+\begin{figure}[h]
+  \centering
+  \resizebox{\columnwidth}{!}{\input{generated/pareto}}
+  \caption{Pareto frontier across {{ runs | length }} scenarios.
+           Color indicates total program cost.}
+  \label{fig:pareto}
+\end{figure}
+
+Table~\ref{tab:comparison} compares headline metrics across
+all scenarios.
+
+\begin{table}[h]
+\centering
+\caption{Multi-Scenario Comparison}
+\label{tab:comparison}
+\begin{tabular}{lrrr}
+\toprule
+Scenario & Launches & Duration (mo) & Cost (\$M) \\
+\midrule
+{% for run in runs %}
+{{ run.label | replace('_', '\_') | truncate(22, True, '...') }} &
+{{ run.result.total_launches }} &
+{{ "%.1f"|format(run.result.total_periods * 7 / 30) }} &
+{{ "%.0f"|format(run.result.total_cost_million) }} \\
+{% endfor %}
+\bottomrule
+\end{tabular}
+\end{table}
+
+{% endif %}
