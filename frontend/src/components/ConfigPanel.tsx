@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSimStore } from "@/store/useSimStore";
 import { getCargoVehicles, getCrewVehicles, getTransferStages, runSimulation } from "@/lib/api";
 import VehicleSelector from "./VehicleSelector";
@@ -10,11 +10,18 @@ import type { SimulationRequest } from "@/lib/types";
 
 export default function ConfigPanel() {
   const store = useSimStore();
+  const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getCargoVehicles(), getCrewVehicles(), getTransferStages()])
-      .then(([cargo, crew, stages]) => store.setCatalogs(cargo, crew, stages))
-      .catch(console.error);
+      .then(([cargo, crew, stages]) => {
+        store.setCatalogs(cargo, crew, stages);
+        setApiError(null);
+      })
+      .catch((err) => {
+        console.error(err);
+        setApiError("Cannot reach simulation server. Start Flask with: py -3.12 -m flask --app simulation.app run");
+      });
   }, []);
 
   const handleRun = async () => {
@@ -47,6 +54,11 @@ export default function ConfigPanel() {
   return (
     <div className="w-80 h-full overflow-y-auto border-r border-gray-700 p-4 bg-gray-900 text-white">
       <h2 className="text-lg font-bold mb-4">Configuration</h2>
+      {apiError && (
+        <div className="mb-4 p-2 bg-red-900 border border-red-700 rounded text-xs text-red-300">
+          {apiError}
+        </div>
+      )}
       <div className="mb-4">
         <h3 className="text-sm font-semibold mb-2">Spacecraft</h3>
         <label className="block text-sm mb-1">Length (km): {store.spacecraft.length_km}</label>

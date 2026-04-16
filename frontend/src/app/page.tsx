@@ -1,5 +1,9 @@
-import ConfigPanel from "@/components/ConfigPanel";
-import Dashboard from "@/components/Dashboard";
+"use client";
+
+import dynamic from "next/dynamic";
+
+const ConfigPanel = dynamic(() => import("@/components/ConfigPanel"), { ssr: false });
+const Dashboard = dynamic(() => import("@/components/Dashboard"), { ssr: false });
 
 export default function Home() {
   return (
