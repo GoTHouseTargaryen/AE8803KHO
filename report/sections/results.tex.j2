@@ -51,7 +51,7 @@ assembly action or launch event, color-coded by type.
 
 \begin{figure}[h]
   \centering
-  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_gantt}}
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_gantt.pgf}}
   \caption{Assembly timeline Gantt chart ---
            {{ run.label | replace('_', '\_') }}.}
   \label{fig:gantt_{{ loop.index }}}
@@ -66,7 +66,7 @@ rotations and cargo deliveries.
 
 \begin{figure}[h]
   \centering
-  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_resources}}
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_resources.pgf}}
   \caption{Resource utilization over time ---
            {{ run.label | replace('_', '\_') }}.}
   \label{fig:resources_{{ loop.index }}}
@@ -77,7 +77,7 @@ by launch vehicle.
 
 \begin{figure}[h]
   \centering
-  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_cost}}
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_cost.pgf}}
   \caption{Cost breakdown by vehicle ---
            {{ run.label | replace('_', '\_') }}.}
   \label{fig:cost_{{ loop.index }}}
@@ -89,7 +89,7 @@ and the impact of crew rotation gaps on progress rate.
 
 \begin{figure}[h]
   \centering
-  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_modules}}
+  \resizebox{\columnwidth}{!}{\input{generated/run_{{ loop.index0 }}_modules.pgf}}
   \caption{Modules completed over time ---
            {{ run.label | replace('_', '\_') }}.}
   \label{fig:modules_{{ loop.index }}}
@@ -108,7 +108,7 @@ between launch frequency and assembly duration.
 
 \begin{figure}[h]
   \centering
-  \resizebox{\columnwidth}{!}{\input{generated/pareto}}
+  \resizebox{\columnwidth}{!}{\input{generated/pareto.pgf}}
   \caption{Pareto frontier across {{ runs | length }} scenarios.
            Color indicates total program cost.}
   \label{fig:pareto}
