@@ -1,0 +1,376 @@
+\section{Results}
+
+This section presents quantitative outcomes from
+1 simulation scenario
+tagged for analysis. Each scenario was optimized using the
+forward beam search solver described in Section~II with beam
+width $K = 100$. Figures and tables are generated directly from
+the solver output; the accompanying narrative describes what each
+chart shows and highlights the key patterns visible in the data.
+Interpretation, trade-off analysis, and mission-planning
+implications are addressed in Section~V (Discussion).
+
+
+\subsection{Scenario:Currently Available Vehicles Minimizing Number of Launches}
+
+Table~\ref{tab:metrics_1} summarizes the headline
+performance metrics for this scenario.
+The assembly campaign completed
+58~modules in
+154~periods
+(35.9~months),
+required 32~launch
+events
+(27~cargo and 5~crew
+rotations),
+and incurred a total program cost of
+\$13660\,M.
+The cumulative proximity risk metric
+(Eq.~\ref{eq:risk}) accumulated to
+0.0018 over the campaign.
+These figures reflect a spacecraft of length
+5\,km with
+Chemical propulsion and a
+Solar power system, optimized
+under objective weights
+$(w_1, w_2, w_3) =
+(5,\;
+ 0,\;
+ 0)$.
+
+\begin{table}[htbp]
+\centering
+\caption{Key performance metrics ---
+         Currently Available Vehicles Minimizing Number of Launches.}
+\label{tab:metrics_1}
+\begin{tabular}{lr}
+\toprule
+Metric & Value \\
+\midrule
+Total launches        & 32 \\
+\quad Cargo flights   & 27 \\
+\quad Crew rotations  & 5 \\
+Mission duration      & 154 periods
+                        (35.9 months) \\
+Total program cost    & \$13660\,M \\
+Cost per module       & \$236\,M \\
+Modules completed     & 58 \\
+Cumulative risk       & 0.0018 \\
+Spacecraft length     & 5\,km \\
+Propulsion            & Chemical \\
+Power system          & Solar \\
+Cargo vehicles used &
+  Falcon Heavy, Vulcan Centaur, SLS Block 2 \\
+Crew vehicle used &
+  Starliner \\
+Objective weights ($w_1, w_2, w_3$) &
+  (5,
+   0,
+   0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Assembly timeline (Fig.~\ref{fig:gantt_1}).}
+The Gantt chart maps every action taken by the optimizer against
+the period index (horizontal axis).
+Each horizontal bar represents a single event: cargo launches
+are shown in blue, crew launches in orange, fully assembled
+modules in green, and work-in-progress (WIP) modules---those
+whose assembly hours spanned more than one period---in purple.
+Bars for concurrent actions within the same period are stacked
+vertically, so a dense vertical column indicates a high-activity
+period with simultaneous launches and assembly completions.
+In this scenario the first cargo flight was dispatched at
+period~4
+(day~28,
+or $\approx0.9$~months
+after campaign start), which is gated by the lead time of the
+selected cargo vehicles
+(Eq.~\ref{eq:leadtime}).
+The first crew rotation launched at period~13;
+assembly work began at period~45, once
+sufficient cargo had arrived and at least one module was
+deliverable to the site.
+The campaign logged 27~cargo
+flights,
+5~crew rotations,
+and 58~module
+completions
+across 154~periods.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{0.85\textwidth}{!}{\input{generated/run_0_gantt.pgf}}
+  \caption{Assembly timeline Gantt chart ---
+           Currently Available Vehicles Minimizing Number of Launches.
+           Blue~=~cargo launch; orange~=~crew launch;
+           green~=~module assembled; purple~=~WIP.}
+  \label{fig:gantt_1}
+\end{figure}
+
+\paragraph{Resource utilization (Fig.~\ref{fig:resources_1}).}
+The resource chart overlays two time-varying quantities on a
+dual-axis plot: the on-site crew headcount (left axis, solid
+orange line) and the total vehicle count in proximity (right
+axis, dashed blue line), where vehicle count includes all
+docked crew vehicles plus any cargo vehicles actively unloading
+in that period.
+Together these two signals drive the congestion penalty
+$\pi(n,p)$ in Eq.~(\ref{eq:penalty}): peak crew count
+maximizes assembly throughput, but simultaneous peaks in both
+crew and vehicle count incur the largest proximity penalties
+and collision-risk contributions (Eq.~\ref{eq:risk}).
+Periods in which the vehicle count spikes while crew count
+remains constant correspond to cargo arrivals; those are the
+highest-risk windows in the campaign.
+Flat crew-count segments between rotation launches indicate
+periods where crew is absent and assembly is stalled or purely
+robotic.
+The relatively elevated cumulative risk of
+0.0018 in this scenario
+is consistent with periods of high vehicle density visible in the
+chart; tightening the crew-rotation overlap schedule or
+staggering cargo arrivals would reduce the peak $n$ and
+lower $\mathcal{R}$.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{0.75\textwidth}{!}{\input{generated/run_0_resources.pgf}}
+  \caption{On-site crew (left axis, orange) and vehicle
+           count in proximity (right axis, blue dashed) ---
+           Currently Available Vehicles Minimizing Number of Launches.}
+  \label{fig:resources_1}
+\end{figure}
+
+\paragraph{Program cost breakdown (Fig.~\ref{fig:cost_1}).}
+The cost chart presents a two-panel horizontal bar chart.
+The upper panel shows cargo launch vehicles (blue bars) and the
+lower panel shows crew vehicles (orange bars).
+Each bar's length equals the catalog unit price for that vehicle
+multiplied by its total number of flights in this scenario; the
+first-flight cost premium (Eq.~\ref{eq:firstflight}) is folded
+into the first flight's bar.
+Vehicles with zero flights are omitted; numeric cost labels
+(\$M) appear at the right end of each bar.
+The total program cost of \$13660\,M
+is the sum of all bars in both panels.
+Of the 32~total launches,
+27~were cargo flights and 5~were
+crew rotations; the relative height of the two panels indicates
+the cargo-versus-crew share of the total budget.
+A vehicle that appears in only one flight carries a
+disproportionately high first-flight premium (up to 40\% for
+in-development vehicles), which is visible as an extra bar
+extension compared with per-launch cost alone.
+Because $w_1 = 5$ is the
+dominant weight, the optimizer consolidated payload onto
+high-capacity vehicles to minimize the number of bars
+in the upper panel.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{0.75\textwidth}{!}{\input{generated/run_0_cost.pgf}}
+  \caption{Program cost breakdown by vehicle ---
+           Currently Available Vehicles Minimizing Number of Launches.
+           Upper panel: cargo vehicles (blue).
+           Lower panel: crew vehicles (orange).
+           Bar length = unit price $\times$ flights.}
+  \label{fig:cost_1}
+\end{figure}
+
+\paragraph{Assembly progress (Fig.~\ref{fig:modules_1}).}
+The modules-over-time chart is a step function of cumulative
+modules completed plotted against period index.
+Each vertical step represents one or more module completions
+within the same period; the height of each step equals the
+number of modules finished in that period.
+A dotted horizontal red reference line marks the total module
+target (58~modules); the campaign
+is complete when the step function first reaches this line.
+Flat horizontal segments---periods with no new completions---
+indicate one of three conditions: (a) all eligible modules are
+in transit and no material has yet arrived at the site;
+(b) a WIP module is being worked across multiple periods and
+will complete in a future step; or (c) the crew has expired
+and no new rotation has yet arrived.
+The overall slope of the curve is the assembly rate; a
+consistently steep slope indicates that the crew and cargo
+pipeline are well-matched, while a shallow slope or a late
+inflection point suggests the campaign was bottlenecked by
+transit time, crew availability, or DAG precedence constraints.
+In this scenario, 58~modules were
+completed in 154~periods, giving an
+average assembly rate of
+0.38~modules
+per period
+($\approx1.61$~per
+calendar month).
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{0.75\textwidth}{!}{\input{generated/run_0_modules.pgf}}
+  \caption{Cumulative modules completed vs.\ period ---
+           Currently Available Vehicles Minimizing Number of Launches.
+           Dotted line = total module target
+           (58~modules).}
+  \label{fig:modules_1}
+\end{figure}
+
+
+
+\section{Discussion}
+\label{sec:discussion}
+
+
+\subsection{Solution Space and Constraint Boundaries}
+
+Figure~\ref{fig:solution_space} maps the full set of solutions
+generated by a $3 \times 3 \times 3$ grid of objective weights
+$(w_1, w_2, w_3) \in \{0, 1, 2\}^3$ onto the
+(launches, duration) plane.
+Each point represents a unique (launches, duration) outcome
+produced by the beam-search optimizer for one weight
+combination; color indicates program cost.
+Diamond markers identify Pareto-optimal solutions---points
+for which no other sampled solution achieves a strictly
+lower value on all three objectives---and the dashed step line
+traces the empirical Pareto frontier through these points.
+The red shaded band above the horizontal constraint line
+($T = T_{\max}$) marks the infeasible region imposed by the
+planning horizon limit; solutions approaching this boundary
+indicate that the optimizer exhausted all available scheduling
+periods without completing the spacecraft.
+The orange band below the lead-time floor marks durations that
+are physically unachievable regardless of weights, because
+vehicle availability gates (Eq.~\ref{eq:leadtime}) prevent
+first launches before the earliest $\tau_v$ has elapsed.
+Red stars identify the tagged
+scenario
+chosen for detailed analysis above.
+The density and spread of points in the interior of the plot
+reveal how sensitive the campaign architecture is to weight
+selection: a compact cluster indicates that most weight
+combinations converge to similar solutions, while a widely
+dispersed cloud shows strong weight sensitivity.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{0.85\textwidth}{!}{\input{generated/solution_space.pgf}}
+  \caption{Complete solution space generated by a
+           $3{\times}3{\times}3$ weight sweep.
+           Diamond markers are Pareto-optimal points;
+           the dashed line traces the empirical frontier.
+           Red stars are the tagged
+           scenario.
+           Shaded bands mark the infeasible regions.}
+  \label{fig:solution_space}
+\end{figure}
+
+
+The single tagged scenario
+(Currently Available Vehicles Minimizing Number of Launches)
+produced 32~launches,
+154~periods of assembly
+(35.9~months), and
+\$13660\,M of total
+program cost under weights
+$(w_1, w_2, w_3) =
+(5,\;
+ 0,\;
+ 0)$.
+The discussion below interprets each performance dimension in light
+of the model physics and the selected configuration.
+
+\subsection{Launch Cadence and Vehicle Selection}
+
+The 32-launch campaign includes
+27~cargo
+flights
+and 5~crew
+rotations,
+averaging
+0.21~total
+launches per period
+($\approx0.89$~per
+calendar month).
+The cargo fleet comprised
+Falcon Heavy and Vulcan Centaur and SLS Block 2;
+crew rotations used
+Starliner.
+At 0.55~launches per module,
+the optimizer consolidated multiple modules onto individual
+flights, reflecting the weight $w_1 = 5$
+placed on minimizing launch count.
+The relatively high per-flight payload utilization reduces
+overall pad-time and range-coordination overhead.
+The pad-turnaround constraint (Section~II.G) precluded any
+single vehicle from flying more frequently than once every
+$\Delta t_{\mathrm{pad}} = 2$ periods; the observed cadence
+of 0.21~launches
+per period is consistent with this ceiling for
+32~flights across
+154~periods.
+
+\subsection{Schedule, Crew Coverage, and Assembly Bottlenecks}
+
+The campaign completed in 154~periods
+(35.9~months).
+The first cargo flight launched at period~4,
+gated by the lead time of the selected cargo vehicle.
+Assembly work commenced at period~45,
+after sufficient modules had arrived at the site and a crew
+vehicle was docked to begin EVA operations.
+The average assembly rate of
+0.38~modules per period
+(1.61~per calendar month) was
+set by the interaction of crew EVA capacity
+(Eqs.~\ref{eq:eva}--\ref{eq:crew_hours}), DAG precedence
+constraints, and proximity congestion penalties
+(Eq.~\ref{eq:penalty}).
+The dominant launch weight $w_1 = 5$
+caused the optimizer to defer some launches, accepting a longer
+schedule in exchange for higher per-flight payload utilization.
+Flat regions in the modules-over-time curve
+(Fig.~\ref{fig:modules_1}) correspond to these deliberate
+deferral windows.
+Gaps between crew rotations---periods in which the crew vehicle
+had expired and no replacement had yet arrived---are the primary
+source of schedule inefficiency; their aggregate contribution
+to the campaign length is visible as flat segments in
+Fig.~\ref{fig:modules_1}.
+
+\subsection{Cost Structure and Program Economics}
+
+At \$13660\,M total,
+the campaign incurred an average cost of
+\$236\,M per
+assembled module.
+The cost breakdown (Fig.~\ref{fig:cost_1}) decomposes this
+total into contributions from each cargo and crew vehicle.
+Because cost was not the dominant objective
+($w_3 = 0$), the optimizer may have
+selected higher-capacity or faster-available vehicles at a cost
+premium; the cost chart shows where the largest single-vehicle
+expenditures occurred.
+Crew rotations typically represent a significant share of total
+program cost because each rotation incurs both a launch fee and
+a crew-support overhead; reducing rotation frequency (via longer
+crew tours) reduces cost but may leave the assembly site
+uncrewed during transit windows.
+
+\subsection{Proximity Risk and Operational Safety}
+
+The cumulative proximity risk of
+0.0018 was accumulated
+over 154~periods according to
+Eq.~(\ref{eq:risk}).
+The low cumulative risk reflects well-separated vehicle traffic:
+cargo and crew arrivals were largely non-overlapping, keeping
+the simultaneous vehicle count $n(t)$ close to~1 for most of the
+campaign and the $\binom{n}{2}$ pair contribution near zero.
+This favorable safety profile was achieved without an explicit
+safety objective, suggesting that the campaign structure
+naturally minimizes multi-vehicle overlap when launch timing is
+driven by assembly-demand signals.
+
