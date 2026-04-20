@@ -157,6 +157,37 @@ class DPSolver:
         crew_coverage = sum(cv.periods_remaining for cv in state.crew_vehicles)
         return built * 3 + at_site * 2 + in_transit + crew_coverage
 
+    def _beam_secondary(
+        self,
+        state: SimState,
+        delivered: frozenset[str],
+        wip: _WIP,
+        weighted_cost: float,
+    ) -> float:
+        """Secondary beam-sort score: pipeline progress blended with objective cost.
+
+        Two key properties:
+        1. Any state with active pipeline (cargo in transit, modules at site, or
+           WIP) always ranks above a completely idle state, regardless of cost.
+           This prevents the beam from filling with do-nothing states when the
+           launch-count or cost weight is high.
+        2. Within the active-state tier, the weighted cost is subtracted (scaled
+           to the same range as progress), so cheaper/fewer-launch trajectories
+           float to the top when the corresponding weight is high.
+        """
+        progress = self._effective_progress(state, delivered, wip)
+        is_active = bool(
+            state.cargo_in_transit
+            or (delivered - state.modules_built)
+            or wip
+        )
+        if not is_active:
+            return 0.0
+        # activity_bonus guarantees active > idle even at maximum cost penalty
+        activity_bonus = self.total_modules * 2
+        cost_penalty = weighted_cost * self.total_modules
+        return max(float(progress) + activity_bonus - cost_penalty, 1.0)
+
     def _is_dominated(
         self,
         a_state: SimState, a_delivered: frozenset[str], a_wip: _WIP,
@@ -245,9 +276,9 @@ class DPSolver:
             #      compete properly.
             next_beam.sort(
                 key=lambda x: (
-                    -len(x[0].modules_built),                       # more built = better
-                    -self._effective_progress(x[0], x[1], x[2]),   # more pipeline = better
-                    x[5],                                            # lower weighted cost = better
+                    -len(x[0].modules_built),             # tier 1: completion guarantee
+                    -self._beam_secondary(x[0], x[1], x[2], x[5]),  # tier 2: pipeline - cost
+                    x[5],                                  # tier 3: pure cost tiebreaker
                 )
             )
             beam = [
