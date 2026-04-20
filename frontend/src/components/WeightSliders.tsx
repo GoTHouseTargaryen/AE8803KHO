@@ -21,7 +21,7 @@ export default function WeightSliders() {
             <span>{label}</span>
             <span>{weights[key].toFixed(1)}</span>
           </label>
-          <input type="range" min="0" max="2" step="0.1" value={weights[key]}
+          <input type="range" min="0" max="5" step="0.25" value={weights[key]}
             onChange={(e) => setWeights({ [key]: parseFloat(e.target.value) })} className="w-full" />
         </div>
       ))}

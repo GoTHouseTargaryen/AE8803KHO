@@ -72,15 +72,20 @@ Click **Run Simulation** to execute the optimizer. Results appear in the dashboa
 
 ### Objective Weight Effects
 
-| Weight | Drives optimizer toward… | Vehicle choices |
-|--------|--------------------------|----------------|
-| **w₁ (launches)** | Fewer, larger flights; defers crew re-docking | Starship (150 t), SLS Block 2 (130 t) |
-| **w₂ (time)** | Front-load cargo; launch crew at first airlock; prefer Hohmann over WSB (60 vs 120 day transit) | Fastest available vehicles |
-| **w₃ (cost)** | Cheapest fleet; avoids SLS Block 2 ($4,100 M); prefers New Glenn ($90 M) and Crew Dragon ($220 M/mission); reuses fewer vehicle types to minimize first-flight premiums | Cost-per-kg efficient vehicles |
+Each weight minimizes its objective — higher w₁ → fewer launches, higher w₂ → shorter mission, higher w₃ → lower cost. Sliders range 0–5.
+
+| Weight | Optimizer behavior | Preferred vehicles |
+|--------|-------------------|--------------------|
+| **w₁ (launches)** | Consolidates payload onto fewest flights; defers crew re-docking | Starship (150 t), SLS Block 2 (130 t) |
+| **w₂ (time)** | Front-loads cargo; launches crew at first airlock; prefers Hohmann (60-day) over WSB (120-day) transit | Fastest available vehicles |
+| **w₃ (cost)** | Substitutes cheapest vehicles; avoids SLS Block 2 ($4,100 M); prefers New Glenn ($90 M) and Crew Dragon ($220 M); reuses fewer vehicle types to minimize first-flight premiums | Cost-per-kg efficient vehicles |
 
 Equal weights (w₁ = w₂ = w₃ = 1) typically yield Falcon Heavy + Crew Dragon + NTP Tug.
 
-> **Note on pad turnaround:** Each vehicle has a 2-period (14-day) minimum inter-launch interval. The beam-search secondary score blends pipeline depth with the weighted cost penalty, so the optimizer correctly waits for a cheaper vehicle to come off cooldown rather than filling the slot with an expensive one — even when the expensive vehicle is immediately eligible.
+> **When do weights produce different solutions?**
+> Weights only shift the optimizer when there is a real trade-off to make. **With a single cargo vehicle selected, all weight combinations produce the same plan** — the vehicle mix cannot change, only timing can. Select at least two cargo vehicles with different costs (e.g. Falcon Heavy + New Glenn, or add SLS Block 2) and use a larger spacecraft (≥ 2 km) to see clearly different solutions across the three objectives.
+
+> **Pad turnaround note:** Each vehicle has a 2-period (14-day) minimum inter-launch interval. The beam-search secondary score blends pipeline depth with the weighted cost penalty, so the optimizer correctly weighs waiting for a cheaper vehicle against launching an expensive one immediately.
 
 ### Dashboard (main area)
 
@@ -121,7 +126,7 @@ Click **Compile Report**. The server will:
 
 | Vehicle | Nation | LEO (t) | Cost ($M) | Lead (mo) | Status |
 |---------|--------|---------|-----------|-----------|--------|
-| Starship | USA | 150 | 100 | 4.1 | Near-term |
+| Starship | USA | 150 | 200 | 4.1 | Near-term |
 | SLS Block 2 | USA | 130 | 4,100 | 6.0 | Operational |
 | Falcon Heavy | USA | 64 | 150 | 0.9 | Operational |
 | New Glenn | USA | 45 | 90 | 3.0 | Near-term |

@@ -77,6 +77,23 @@ class DPSolver:
             cv.name: cv.first_flight_cost_premium for cv in config.crew_vehicles
         }
 
+        # Dynamic cost normalization: use the median cost (with first-flight premium)
+        # across all selected cargo and crew vehicles × max_launches.
+        # A static $2000/module ceiling compresses cheap vehicles (Starship, FH)
+        # to 5-10% of max, making w_cost essentially irrelevant.  The median-based
+        # bound keeps the cost term in the same 30-80% range as launches and time.
+        _all_costs: list[float] = sorted(
+            cv.cost_per_launch_million * (1.0 + cv.first_flight_cost_premium)
+            for cv in config.cargo_vehicles
+        )
+        _all_costs += sorted(
+            cv.cost_per_launch_million * (1.0 + cv.first_flight_cost_premium)
+            for cv in config.crew_vehicles
+        )
+        _all_costs.sort()
+        _median_cost = _all_costs[len(_all_costs) // 2] if _all_costs else 200.0
+        self._max_cost_million: float = max(self.total_modules * 2, 1) * _median_cost
+
         # Precompute best delivery option for each cargo vehicle
         self._delivery_cache: dict[str, tuple[float, int, float]] = {}
         for cv in config.cargo_vehicles:
@@ -180,6 +197,7 @@ class DPSolver:
             state.cargo_in_transit
             or (delivered - state.modules_built)
             or wip
+            or state.crew_vehicles   # crew on-site = productive; preserve in beam
         )
         if not is_active:
             return 0.0
@@ -255,7 +273,7 @@ class DPSolver:
                         new_state.total_cost_million,
                         max_launches=self.total_modules * 2,
                         max_periods=self.config.max_periods,
-                        max_cost_million=self.total_modules * 2000,
+                        max_cost_million=self._max_cost_million,
                     )
                     new_timeline = timeline + [
                         {"period": period, "actions": actions}

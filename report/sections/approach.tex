@@ -46,13 +46,22 @@ sliders in the web interface.
 Upper bounds used for safe normalization are
 $N_{\mathrm{launches}}^{\max} = 2|\mathcal{M}_{\mathrm{total}}|$,
 $T^{\max} = T_{\mathrm{horizon}}$ (default 200 periods), and
-$C^{\max} = \$2{,}000|\mathcal{M}_{\mathrm{total}}|$\,M.
-The $C^{\max}$ ceiling exceeds any single mid-size-vehicle launch cost
-(e.g.\ \$150\,M for Falcon Heavy) while remaining below the total
-expenditure of a large all-SLS campaign
-($\$4{,}100\,\mathrm{M}\times |\mathcal{M}|$), ensuring that the
-normalized cost term stays in the range $[0,1]$ for representative
-mission architectures.
+
+\begin{equation}
+  C^{\max} = 2\,|\mathcal{M}_{\mathrm{total}}| \cdot \bar{c}
+  \label{eq:cmax}
+\end{equation}
+
+\noindent where $\bar{c}$ is the \emph{median} per-launch cost
+(including first-flight premium, Eq.~\ref{eq:firstflight}) across
+all selected cargo and crew vehicles.
+A static ceiling such as $\$2{,}000|\mathcal{M}|$\,M
+would compress cheap-vehicle missions (e.g.\ Starship at \$200\,M)
+to less than 10\% of the range, making the cost weight $w_3$
+effectively irrelevant.
+The median-based bound keeps $C/C^{\max}$ in the same 30--80\%
+range as the normalized launch and time terms, so all three
+weights shift the optimizer proportionally.
 Safe normalization returns 0 when the upper bound is zero.
 
 \subsection{Transfer Model}
@@ -305,3 +314,20 @@ scheduling choice between a cheap vehicle on cooldown and an
 expensive vehicle that is currently eligible.
 The \emph{tertiary tier} $J(S)$ resolves any remaining ties by pure
 objective value. Default beam width: $K = 100$.
+
+\paragraph{Weight sensitivity in practice.}
+Weights produce visibly different solutions when the optimizer faces
+genuine choices: multiple cargo vehicles with different costs or
+lead times, or a spacecraft large enough to require several launches.
+With a single cargo vehicle selected, all weight combinations
+converge to the same campaign architecture because the vehicle mix
+cannot change---only launch timing varies.
+The greedy beam structure also limits temporal trade-offs: a
+trajectory that sacrifices early progress to wait for a cheaper
+vehicle with a long lead time is penalized in tier~1 relative to a
+trajectory that launches the immediately available vehicle; a
+Pareto/NSGA-II search would preserve such trade-offs but is
+computationally impractical for the state sizes considered here.
+To explore cost-versus-time trade-offs, select at least two cargo
+vehicles with different costs and compare runs on the Pareto
+frontier view.
