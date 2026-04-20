@@ -90,7 +90,7 @@ def create_app() -> Flask:
         all_stages = {s.name: s for s in TransferStage.default_catalog()}
 
         cargo_vehicles = [all_cargo[n] for n in body["cargo_vehicles"] if n in all_cargo]
-        crew_vehicles = [all_crew[n] for n in body["crew_vehicles"] if n in all_crew]
+        crew_vehicles  = [all_crew[n]  for n in body["crew_vehicles"]  if n in all_crew]
         transfer_stages = [all_stages[n] for n in body["transfer_stages"] if n in all_stages]
 
         w = body.get("weights", {})
@@ -240,8 +240,9 @@ def create_app() -> Flask:
             pdf_bytes = build_report(runs)
         except FileNotFoundError as exc:
             return jsonify({"error": str(exc)}), 503
-        except RuntimeError as exc:
-            return jsonify({"error": str(exc)}), 500
+        except Exception as exc:
+            import traceback
+            return jsonify({"error": str(exc), "detail": traceback.format_exc()}), 500
 
         from flask import Response
         return Response(

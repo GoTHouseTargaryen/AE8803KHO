@@ -63,6 +63,20 @@ class DPSolver:
         self.dag = config.dag
         self.total_modules = config.dag.total_modules
 
+        # Build lookup of lead times and first-flight premiums keyed by vehicle name
+        self._cargo_lead: dict[str, int] = {
+            cv.name: cv.lead_time_periods for cv in config.cargo_vehicles
+        }
+        self._cargo_premium: dict[str, float] = {
+            cv.name: cv.first_flight_cost_premium for cv in config.cargo_vehicles
+        }
+        self._crew_lead: dict[str, int] = {
+            cv.name: cv.lead_time_periods for cv in config.crew_vehicles
+        }
+        self._crew_premium: dict[str, float] = {
+            cv.name: cv.first_flight_cost_premium for cv in config.crew_vehicles
+        }
+
         # Precompute best delivery option for each cargo vehicle
         self._delivery_cache: dict[str, tuple[float, int, float]] = {}
         for cv in config.cargo_vehicles:
@@ -406,19 +420,24 @@ class DPSolver:
             in_transit_ids.update(c.module_ids)
         launchable = modules_not_delivered - in_transit_ids
 
-        # --- Try launching cargo (respect pad turnaround per vehicle) ---
+        # --- Try launching cargo (respect pad turnaround AND lead time per vehicle) ---
         if launchable and self._delivery_cache:
-            # Consider each available cargo vehicle (not on cooldown)
             eligible_cargo = {
                 name: data
                 for name, data in self._delivery_cache.items()
-                if period - last_launch.get(name, -999) >= self.config.pad_turnaround_periods
+                if (period - last_launch.get(name, -999) >= self.config.pad_turnaround_periods
+                    and period >= self._cargo_lead.get(name, 0))
             }
             if eligible_cargo:
                 best_vehicle_name = max(
                     eligible_cargo, key=lambda k: eligible_cargo[k][0]
                 )
-                best_mass, transit_p, cost = eligible_cargo[best_vehicle_name]
+                best_mass, transit_p, base_cost = eligible_cargo[best_vehicle_name]
+
+                # Apply first-flight premium if this vehicle has never launched
+                is_first_flight = last_launch.get(best_vehicle_name, -999) < 0
+                premium = self._cargo_premium.get(best_vehicle_name, 0.0) if is_first_flight else 0.0
+                cost = base_cost * (1.0 + premium)
 
                 manifest: list[str] = []
                 mass_remaining = best_mass
@@ -452,18 +471,21 @@ class DPSolver:
                         (launch_state, delivered_fs, new_wip, new_last_launch, launch_actions)
                     )
 
-        # --- Try sending crew if none on-site ---
-        # Consider each crew vehicle (not on cooldown), pick cheapest available
+        # --- Try sending crew if none on-site (respect pad turnaround AND lead time) ---
         if total_crew == 0 and self.config.crew_vehicles:
             eligible_crew = [
                 cv for cv in self.config.crew_vehicles
-                if period - last_launch.get(cv.name, -999) >= self.config.pad_turnaround_periods
+                if (period - last_launch.get(cv.name, -999) >= self.config.pad_turnaround_periods
+                    and period >= self._crew_lead.get(cv.name, 0))
             ]
             if eligible_crew:
-                # Pick the cheapest eligible crew vehicle
                 cv = min(eligible_crew, key=lambda v: v.cost_per_launch_million)
                 crew_count = min(cv.max_crew, 5)
                 rotation_periods = cv.max_mission_duration_days // self.config.period_days
+                is_first_flight = last_launch.get(cv.name, -999) < 0
+                premium = self._crew_premium.get(cv.name, 0.0) if is_first_flight else 0.0
+                crew_cost = cv.cost_per_launch_million * (1.0 + premium)
+
                 new_crew = active_crew + [
                     DockedCrewVehicle(cv.name, crew_count, rotation_periods)
                 ]
@@ -479,14 +501,14 @@ class DPSolver:
                     tugs_available=new_tugs,
                     period=period + 1,
                     total_launches=state.total_launches + 1,
-                    total_cost_million=state.total_cost_million + cv.cost_per_launch_million,
+                    total_cost_million=state.total_cost_million + crew_cost,
                     cumulative_risk=state.cumulative_risk + risk,
                 )
                 successors.append(
                     (crew_state_new, delivered_fs, new_wip, new_last_launch_crew, crew_actions)
                 )
 
-        # --- Combined: launch cargo + crew ---
+        # --- Combined: launch cargo + crew (both must satisfy lead time) ---
         if (
             total_crew == 0
             and launchable
@@ -496,11 +518,13 @@ class DPSolver:
             eligible_cargo_c = {
                 name: data
                 for name, data in self._delivery_cache.items()
-                if period - last_launch.get(name, -999) >= self.config.pad_turnaround_periods
+                if (period - last_launch.get(name, -999) >= self.config.pad_turnaround_periods
+                    and period >= self._cargo_lead.get(name, 0))
             }
             eligible_crew_c = [
                 cv for cv in self.config.crew_vehicles
-                if period - last_launch.get(cv.name, -999) >= self.config.pad_turnaround_periods
+                if (period - last_launch.get(cv.name, -999) >= self.config.pad_turnaround_periods
+                    and period >= self._crew_lead.get(cv.name, 0))
             ]
             if eligible_cargo_c and eligible_crew_c:
                 cv = min(eligible_crew_c, key=lambda v: v.cost_per_launch_million)
@@ -509,7 +533,15 @@ class DPSolver:
                 best_vehicle_name = max(
                     eligible_cargo_c, key=lambda k: eligible_cargo_c[k][0]
                 )
-                best_mass, transit_p, cost = eligible_cargo_c[best_vehicle_name]
+                best_mass, transit_p, base_cost = eligible_cargo_c[best_vehicle_name]
+
+                cargo_is_first = last_launch.get(best_vehicle_name, -999) < 0
+                cargo_premium = self._cargo_premium.get(best_vehicle_name, 0.0) if cargo_is_first else 0.0
+                cargo_cost = base_cost * (1.0 + cargo_premium)
+
+                crew_is_first = last_launch.get(cv.name, -999) < 0
+                crew_premium = self._crew_premium.get(cv.name, 0.0) if crew_is_first else 0.0
+                crew_cost = cv.cost_per_launch_million * (1.0 + crew_premium)
 
                 manifest = []
                 mass_remaining = best_mass
@@ -529,12 +561,12 @@ class DPSolver:
                         crew_vehicles=active_crew
                         + [DockedCrewVehicle(cv.name, crew_count, rotation_periods)],
                         cargo_in_transit=remaining_transit
-                        + [CargoInTransit(tuple(manifest), period + transit_p, cost)],
+                        + [CargoInTransit(tuple(manifest), period + transit_p, cargo_cost)],
                         cargo_at_site=state.cargo_at_site,
                         tugs_available=new_tugs,
                         period=period + 1,
                         total_launches=state.total_launches + 2,
-                        total_cost_million=state.total_cost_million + cost + cv.cost_per_launch_million,
+                        total_cost_million=state.total_cost_million + cargo_cost + crew_cost,
                         cumulative_risk=state.cumulative_risk + risk,
                     )
                     combined_actions = actions + [

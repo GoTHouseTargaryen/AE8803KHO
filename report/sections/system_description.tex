@@ -8,7 +8,7 @@ application running in the browser consumes the API for configuration,
 optimization, and results visualization. Figure~\ref{fig:arch} shows
 the top-level system architecture.
 
-\begin{figure}[h]
+\begin{figure}[htbp]
   \centering
   \input{figures/architecture}
   \caption{System architecture. The Flask API exposes five
@@ -22,7 +22,7 @@ Fourteen module types spanning six subsystem categories are
 defined in the catalog. Table~\ref{tab:modules} lists representative
 mass and assembly parameters.
 
-\begin{table}[h]
+\begin{table}[htbp]
 \centering
 \caption{Module Catalog (Selected Entries)}
 \label{tab:modules}
@@ -62,24 +62,46 @@ Airlock/Docking Node must be complete before crew can board.
 Nine cargo launch vehicles, four crew vehicles, and three transfer
 stages are cataloged. Table~\ref{tab:vehicles} lists cargo vehicles.
 
-\begin{table}[h]
+\begin{table}[htbp]
 \centering
-\caption{Cargo Launch Vehicle Catalog}
+\caption{Cargo launch vehicle catalog with lead-time and first-flight cost parameters.}
 \label{tab:vehicles}
-\begin{tabular}{llrrr}
+\begin{tabular}{llrrrrl}
 \toprule
-Vehicle & Nation & LEO (kg) & Cost (\$M) & L4 Direct \\
+Vehicle & Nation & LEO (t) & Cost (\$M) & Lead (mo) & $\delta_v$ & Status \\
 \midrule
-Starship        & USA     & 150{,}000 & 100    & Yes \\
-SLS Block 2     & USA     & 130{,}000 & 2{,}000 & Yes \\
-Falcon Heavy    & USA     & 63{,}800  & 150    & No  \\
-New Glenn       & USA     & 45{,}000  & 70     & No  \\
-Vulcan Centaur  & USA     & 27{,}200  & 110    & No  \\
-Ariane 6        & Europe  & 21{,}600  & 115    & No  \\
-KSLV-III        & S.Korea & 10{,}000  & 80     & No  \\
-GSLV Mk III     & India   & 10{,}000  & 50     & No  \\
-H3              & Japan   & 6{,}500   & 50     & No  \\
+Starship       & USA      & 150 &     100 &  4.1 & 0.20 & Near-term \\
+SLS Block 2    & USA      & 130 & 4{,}100 &  6.0 & 0.12 & Operational \\
+Falcon Heavy   & USA      &  64 &     150 &  0.9 & 0.08 & Operational \\
+New Glenn      & USA      &  45 &      90 &  3.0 & 0.20 & Near-term \\
+Vulcan Centaur & USA      &  27 &     130 &  1.8 & 0.08 & Operational \\
+Ariane 6       & Europe   &  22 &     110 &  3.0 & 0.10 & Operational \\
+KSLV-III       & S.~Korea &  10 &      80 & 18.0 & 0.40 & In dev. \\
+GSLV Mk III    & India    &  10 &      50 &  3.0 & 0.10 & Operational \\
+H3             & Japan    &   7 &      50 &  3.0 & 0.10 & Operational \\
 \bottomrule
+\multicolumn{7}{l}{\small Lead time in calendar months (= periods $\times$ 7\,days / 30).
+  $\delta_v$ = first-flight cost premium (Eq.~\ref{eq:firstflight}).}
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Crew vehicle catalog. Costs are per mission (vehicle + launch vehicle combined).
+  Crew Dragon and Starliner derived from NASA CCtCap per-seat pricing;
+  Orion reflects capsule production cost excluding SLS; Starship HLS is SpaceX aspirational production rate.}
+\label{tab:crew_vehicles}
+\begin{tabular}{llrrrrl}
+\toprule
+Vehicle      & Nation   & Crew & Cost (\$M) & Lead (mo) & $\delta_v$ & Status \\
+\midrule
+Crew Dragon  & USA      & 7 &  220 & 1.8 & 0.08 & Operational \\
+Starliner    & USA      & 7 &  360 & 3.0 & 0.10 & Operational \\
+Orion        & USA/ESA  & 4 &  600 & 6.0 & 0.12 & Operational \\
+Starship HLS & USA      & 6 &  250 & 6.0 & 0.20 & Near-term \\
+\bottomrule
+\multicolumn{7}{l}{\small Lead time in calendar months.
+  $\delta_v$ = first-flight cost premium (Eq.~\ref{eq:firstflight}).}
 \end{tabular}
 \end{table}
 

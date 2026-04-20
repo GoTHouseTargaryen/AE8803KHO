@@ -1,45 +1,76 @@
-\section{Introduction}
+\section{Motivation}
 
-The assembly of large space structures in orbit has been demonstrated
-operationally through programs such as the International Space
-Station (ISS), which required over 40 assembly flights across more
-than a decade~\cite{nasa_iss_assembly}. However, the scale of
-structures envisioned for future missions---kilometer-class solar
-power satellites, large interferometric telescope arrays, and
-interplanetary propulsion stages---far exceeds what was required for
-the ISS and demands a systematic optimization approach to campaign
-planning~\cite{wertz_larson}.
+The International Space Station (ISS) remains the largest and most
+complex structure ever assembled in orbit. Its construction spanned
+more than a decade, required over 40 dedicated launches across
+multiple partner nations, and consumed more than 1{,}000~hours of
+extravehicular activity (EVA) time across 160+ spacewalks to
+connect, power, and commission individual
+modules~\cite{nasa_iss_assembly,iss_legacy,mcdonnell_iss_eva}. The
+assembly campaign validated that orbital integration of
+pressurized, power-generating, and life-support elements is
+achievable, but it also exposed the fundamental cost drivers
+of in-space assembly: launch cadence, crew rotation logistics,
+and the coupling between simultaneous proximity operations and
+productive build time.
 
-The Earth-Sun L4 Lagrange point offers several advantages as an
-assembly site for large deep-space vehicles. Its gravitational
-stability (the point co-rotates with Earth at 1\,AU from the Sun)
-eliminates the stationkeeping penalty associated with more
-energetically expensive halo orbits~\cite{belbruno_wbs}.
-Continuous solar illumination supports high solar array output,
-and the separation from low-Earth orbit (LEO) debris belts reduces
-shielding requirements for long-duration operations. The transit
-distance of approximately 1\,AU, however, imposes significant
-transfer $\Delta v$ requirements (3.8--4.1\,km/s from LEO) and
-transit times of 60--120 days, making resupply logistics a primary
-cost driver.
+As the civil and commercial space community plans structures that
+eclipse the ISS in scale---kilometer-class solar power satellites,
+large-aperture space telescopes, and crewed interplanetary
+transfer vehicles---the assembly problem grows by more than an
+order of magnitude in both mass and module count. Wie and
+Roithmayr~\cite{wie_space_assembly} identify on-orbit assembly,
+rather than launch vehicle performance, as the critical path for
+structures exceeding roughly 100~metric tons. At these scales no
+single launch vehicle can deliver the complete system, and the
+pattern demonstrated during ISS construction---a mixed fleet of
+crewed missions to perform dexterous assembly and uncrewed cargo
+flights to deliver mass---becomes a requirement rather than a
+choice. Crew are essential for berthing, fluid connections, and
+contingency response, while uncrewed tugs and heavy-lift cargo
+vehicles deliver the bulk mass at a fraction of the per-kilogram
+cost of a human-rated launch~\cite{wertz_larson}. Space-based
+solar power concepts further amplify this requirement, with
+baseline architectures calling for dozens of heavy-lift launches
+per satellite~\cite{nsso_ssp}. The emergence of the Artemis
+Accords framework~\cite{artemis_accords} also motivates planning
+tools that accommodate a multi-national vehicle catalog.
 
-Prior work on space logistics optimization has applied
-time-expanded network models and dynamic programming to station
-resupply~\cite{ho_logistics} and propellant depot
-operations~\cite{ho_depot}. This paper extends those foundations
-to the on-orbit assembly problem, incorporating a multi-objective
-formulation, crew rotation constraints, proximity operations
-penalties, and a multi-nation vehicle catalog reflecting the
-emerging Artemis Accords partnership structure.
+This work targets the Earth--Sun~L4 triangular Lagrange point as
+the assembly site. Unlike the collinear L1/L2 points, the
+triangular libration points L4 and L5 are linearly stable for
+mass ratios below Routh's critical value, which the Sun--Earth
+system satisfies by a wide margin~\cite{l4_stability,
+gomez_l4_dynamics}. Stability translates directly to minimal
+stationkeeping propellant over decadal operations, in contrast
+to halo orbits about L1 or L2 which require on the order of
+several meters per second per year of maintenance
+$\Delta v$~\cite{folta_l4_transfers}. The natural population of
+Earth Trojans observed at L4~\cite{nasa_l4_survey} is empirical
+evidence of this long-term stability. L4 also offers continuous
+solar illumination with no eclipse seasons, supporting high solar
+array output for construction-phase power; large angular
+separation from the LEO debris belt that reduces shielding and
+collision-avoidance overhead; and a quiet thermal and radiation
+environment free from the geomagnetic trapped-particle
+populations that complicate cislunar
+operations~\cite{reed_l4_gateway}. These properties make L4 an
+attractive staging location for long-lived structures that do
+not need the close lunar access of a Gateway-style orbit. The
+trade-off is a transfer $\Delta v$ from LEO of roughly
+3.8--4.1~km/s and transit times of 60--120~days, which makes
+resupply logistics a dominant contributor to life-cycle cost
+and motivates the optimization framework developed in this
+paper~\cite{belbruno_wbs,ho_logistics,ho_depot}.
 
-The specific contributions of this work are:
+The contributions of this work are:
 \begin{enumerate}
   \item A dynamic programming formulation over a time-expanded
         network for assembly campaign optimization, with forward
         beam search to manage state-space complexity;
-  \item A multi-objective cost function with user-adjustable weights
-        over launches, time, and program cost, enabling Pareto
-        frontier analysis;
+  \item A multi-objective cost function with user-adjustable
+        weights over launches, time, and program cost, enabling
+        Pareto frontier analysis;
   \item An interactive web-based simulation tool supporting
         parametric spacecraft configuration, real-time playback,
         and one-click PDF report generation.

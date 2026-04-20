@@ -169,6 +169,50 @@ $h_r$ are updated each period:
 \noindent A module is marked complete when $h_r \leq \varepsilon$
 (default $\varepsilon = 0.01$\,h).
 
+\subsection{Vehicle Availability and Lead-Time Cost}
+
+Each launch vehicle $v$ carries a \emph{lead time}
+$\tau_v \geq 0$ (in periods) representing the minimum elapsed
+campaign time before its first launch is permitted. This
+captures procurement contracts, launch-site integration,
+nuclear certification, and export licensing:
+
+\begin{equation}
+  t \;\geq\; \tau_v,
+  \quad \forall\, v \in \mathcal{V}_{\mathrm{cargo}} \cup
+  \mathcal{V}_{\mathrm{crew}}
+  \label{eq:leadtime}
+\end{equation}
+
+\noindent Vehicles are classified by status:
+operational vehicles have $\tau_v = 4$--26 periods
+(1--6 months); near-term vehicles
+$\tau_v = 13$--18 periods (3--4 months); and vehicles
+in development $\tau_v = 78$ periods ($\sim$18 months).
+
+Contracting, integration, and mission-assurance work
+incurred during the lead-time window constitutes a
+one-time overhead. This is modeled as a
+\emph{first-flight cost premium} $\delta_v \in [0,1]$
+applied only to the first launch of vehicle $v$:
+
+\begin{equation}
+  C_v^{(k)} =
+  \begin{cases}
+    c_v\bigl(1 + \delta_v\bigr) & k = 1 \\
+    c_v                         & k > 1
+  \end{cases}
+  \label{eq:firstflight}
+\end{equation}
+
+\noindent where $c_v$ is the nominal per-launch cost and
+$k$ is the launch index for that vehicle. Premium values
+range from $\delta_v = 0.08$ (operational, established
+manifest) to $\delta_v = 0.40$ (in-development, full
+qualification amortized over one flight). The total
+program cost accumulated in Eq.~(\ref{eq:cost}) uses
+$C_v^{(k)}$ in place of $c_v$.
+
 \subsection{Pad Turnaround Constraint}
 
 Each launch vehicle $v$ is subject to a minimum inter-launch

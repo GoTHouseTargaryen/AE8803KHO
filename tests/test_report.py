@@ -97,7 +97,7 @@ class TestReportBuilder:
             assert out.exists()
             content = out.read_text()
             assert "Test Run" in content
-            assert "Total Launches" in content
+            assert "Total launches" in content
             assert r"\section{Results" in content
 
     def test_render_results_tex_two_runs_has_pareto(self):

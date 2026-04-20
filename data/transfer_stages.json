@@ -1,5 +1,5 @@
 [
-  {"name": "Chemical Kick Stage", "dry_mass_kg": 2000, "propellant_kg": 15000, "isp_s": 450, "reusable": false},
-  {"name": "SEP Tug", "dry_mass_kg": 5000, "propellant_kg": 2000, "isp_s": 3000, "reusable": true},
-  {"name": "NTP Tug", "dry_mass_kg": 8000, "propellant_kg": 10000, "isp_s": 900, "reusable": true}
+  {"name": "Chemical Kick Stage", "dry_mass_kg": 2000, "propellant_kg": 15000, "isp_s": 450,  "reusable": false, "lead_time_periods": 8,   "first_flight_cost_premium": 0.10},
+  {"name": "SEP Tug",             "dry_mass_kg": 5000, "propellant_kg": 2000,  "isp_s": 3000, "reusable": true,  "lead_time_periods": 52,  "first_flight_cost_premium": 0.25},
+  {"name": "NTP Tug",             "dry_mass_kg": 8000, "propellant_kg": 10000, "isp_s": 900,  "reusable": true,  "lead_time_periods": 104, "first_flight_cost_premium": 0.40}
 ]

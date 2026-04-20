@@ -18,8 +18,7 @@ export default function ConfigPanel() {
         store.setCatalogs(cargo, crew, stages);
         setApiError(null);
       })
-      .catch((err) => {
-        console.error(err);
+      .catch(() => {
         setApiError("Cannot reach simulation server. Start Flask with: py -3.12 -m flask --app simulation.app run");
       });
   }, []);
