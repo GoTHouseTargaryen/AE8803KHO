@@ -247,14 +247,33 @@ three-tier lexicographic key $\mathbf{k}(S)$:
 \begin{equation}
   \mathbf{k}(S) = \bigl(
     -|\mathcal{M}_{\mathrm{built}}|,\;
-    -\phi(S),\;
+    -\psi(S),\;
     J(S)
   \bigr)
   \label{eq:beamsort}
 \end{equation}
 
-\noindent sorted in ascending order (lower is better), where
-$\phi(S)$ is the pipeline-depth heuristic:
+\noindent sorted in ascending order (lower is better).
+The secondary score $\psi(S)$ blends pipeline depth with the
+weighted objective cost:
+
+\begin{equation}
+  \psi(S) =
+  \begin{cases}
+    0
+      & \text{if idle}(S) \\[4pt]
+    \max\!\bigl(\,\phi(S)
+               + 2\,|\mathcal{M}_{\mathrm{total}}|
+               - J(S)\cdot|\mathcal{M}_{\mathrm{total}}|,\;1\bigr)
+      & \text{otherwise}
+  \end{cases}
+  \label{eq:psi}
+\end{equation}
+
+\noindent where a state is \emph{idle} if $\mathcal{Q} = \emptyset$
+(no cargo in transit), $\mathcal{D} = \mathcal{M}_{\mathrm{built}}$
+(no modules at site awaiting assembly), and no work-in-progress
+remains. The pipeline-depth heuristic $\phi(S)$ is:
 
 \begin{equation}
   \phi(S) = 3\,|\mathcal{M}_{\mathrm{built}}|
@@ -264,16 +283,25 @@ $\phi(S)$ is the pipeline-depth heuristic:
   \label{eq:phi}
 \end{equation}
 
-\noindent and $r_v$ is the periods remaining in crew vehicle $v$'s
-rotation, $\mathcal{D} \setminus \mathcal{M}_{\mathrm{built}}$ is the
-set of modules delivered to site but not yet assembled, and $J(S)$ is
-the current weighted cost (Eq.~\ref{eq:cost}).
+\noindent where $r_v$ is the periods remaining in crew vehicle $v$'s
+rotation and $J(S)$ is the current weighted cost (Eq.~\ref{eq:cost}).
 
-The primary tier guarantees that states completing more modules are
-never discarded in favor of cheaper but idle states. The secondary
-tier $\phi(S)$ rewards pipeline depth: delivered cargo, modules in
-transit, and a fresh crew rotation each contribute positively, so the
-beam diversifies across scheduling options rather than collapsing
-to a single trajectory. The tertiary tier resolves ties by objective
-value, allowing the cost-weight slider to discriminate between
-otherwise equivalent schedules. Default beam width: $K = 100$.
+The three tiers serve distinct roles.
+The \emph{primary tier} ($-|\mathcal{M}_{\mathrm{built}}|$) is a
+hard completion guarantee: states that have assembled more modules
+are never discarded in favour of cheaper but idle states.
+The \emph{secondary tier} $\psi(S)$ has two responsibilities.
+First, the activity bonus $2|\mathcal{M}_{\mathrm{total}}|$ ensures
+that any state with active pipeline ($\psi \geq 1$) always outranks
+a completely idle state ($\psi = 0$), preventing the beam from
+filling with do-nothing trajectories when cost or launch-count
+weights are large.
+Second, subtracting $J(S)\cdot|\mathcal{M}_{\mathrm{total}}|$ means
+trajectories that accumulate high objective cost—for example, those
+that launch an expensive vehicle during a cheaper vehicle's pad
+turnaround cooldown—are penalized in tier~2, making the weight
+sliders effective even when the pad constraint forces an immediate
+scheduling choice between a cheap vehicle on cooldown and an
+expensive vehicle that is currently eligible.
+The \emph{tertiary tier} $J(S)$ resolves any remaining ties by pure
+objective value. Default beam width: $K = 100$.

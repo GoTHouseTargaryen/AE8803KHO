@@ -264,6 +264,11 @@ when $w_1$ is high and its 130\,t capacity is needed to reduce
 launch count. First-flight cost premiums further penalize
 introducing new vehicle types, so cost-optimal plans tend to
 reuse fewer vehicle types across the campaign.
+The beam secondary score $\psi(S)$ (Eq.~\ref{eq:psi}) incorporates
+$w_3$ directly, so that a trajectory launching an expensive vehicle
+during a cheaper vehicle's pad turnaround window is penalized in
+tier~2 of the beam sort; the planner correctly waits for the cheaper
+vehicle rather than filling the cooldown slot with a costly launch.
 
 \paragraph{Balancing the weights.}
 Equal weights ($w_1 = w_2 = w_3 = 1$) typically yield a plan

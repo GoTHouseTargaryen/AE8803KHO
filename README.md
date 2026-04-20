@@ -74,11 +74,13 @@ Click **Run Simulation** to execute the optimizer. Results appear in the dashboa
 
 | Weight | Drives optimizer toward… | Vehicle choices |
 |--------|--------------------------|----------------|
-| **w₁ (launches)** | Fewer, larger flights | Starship (150 t), SLS Block 2 (130 t) |
-| **w₂ (time)** | Faster assembly; front-load cargo; shorter crew rotation gaps | Fastest available vehicles; Hohmann transfer over WSB |
-| **w₃ (cost)** | Cheapest fleet; avoids SLS Block 2 ($4,100 M); prefers New Glenn ($90 M) and Crew Dragon ($220 M/mission) | Cost-per-kg efficient vehicles |
+| **w₁ (launches)** | Fewer, larger flights; defers crew re-docking | Starship (150 t), SLS Block 2 (130 t) |
+| **w₂ (time)** | Front-load cargo; launch crew at first airlock; prefer Hohmann over WSB (60 vs 120 day transit) | Fastest available vehicles |
+| **w₃ (cost)** | Cheapest fleet; avoids SLS Block 2 ($4,100 M); prefers New Glenn ($90 M) and Crew Dragon ($220 M/mission); reuses fewer vehicle types to minimize first-flight premiums | Cost-per-kg efficient vehicles |
 
 Equal weights (w₁ = w₂ = w₃ = 1) typically yield Falcon Heavy + Crew Dragon + NTP Tug.
+
+> **Note on pad turnaround:** Each vehicle has a 2-period (14-day) minimum inter-launch interval. The beam-search secondary score blends pipeline depth with the weighted cost penalty, so the optimizer correctly waits for a cheaper vehicle to come off cooldown rather than filling the slot with an expensive one — even when the expensive vehicle is immediately eligible.
 
 ### Dashboard (main area)
 
