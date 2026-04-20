@@ -1,0 +1,108 @@
+# L4 Assembly Campaign Optimization — Report
+
+Generated from {{ runs | length }} tagged simulation scenario{{ 's' if runs | length > 1 else '' }}.
+
+---
+
+## Results
+
+{% for run in runs %}
+### Scenario: {{ run.label }}
+
+The assembly campaign completed **{{ run.result.modules_completed }} modules**
+in **{{ run.result.total_periods }} periods**
+({{ "%.1f" | format(run.result.total_periods * 7 / 30) }} months),
+requiring **{{ run.result.total_launches }} launches** and incurring a total
+program cost of **${{ "%.0f" | format(run.result.total_cost_million) }} M**.
+
+#### Key Performance Metrics
+
+| Metric | Value |
+|--------|-------|
+| Total launches | {{ run.result.total_launches }} |
+| Mission duration | {{ run.result.total_periods }} periods ({{ "%.1f" | format(run.result.total_periods * 7 / 30) }} months) |
+| Total program cost | ${{ "%.0f" | format(run.result.total_cost_million) }} M |
+| Modules completed | {{ run.result.modules_completed }} |
+| Cumulative proximity risk | {{ "%.4f" | format(run.result.cumulative_risk) }} |
+| Spacecraft length | {{ run.config.spacecraft.length_km }} km |
+| Propulsion | {{ run.config.spacecraft.propulsion_type }} |
+| Power system | {{ run.config.spacecraft.power_type }} |
+| Objective weights (w₁, w₂, w₃) | ({{ run.config.weights.w_launches }}, {{ run.config.weights.w_time }}, {{ run.config.weights.w_cost }}) |
+
+#### Launch Timeline (selected events)
+
+| Period | Action | Vehicle | Details |
+|--------|--------|---------|---------|
+{% for event in run.result.timeline %}
+{% if event.action in ["cargo_launch", "crew_launch", "module_complete"] %}
+| {{ event.period }} | {{ event.action | replace("_", " ") | title }} | {{ event.get("vehicle", "—") }} | {{ event.get("details", "—") }} |
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+{% if runs | length >= 2 %}
+---
+
+## Multi-Scenario Comparison
+
+| Scenario | Launches | Duration (mo) | Cost ($M) | Risk |
+|----------|----------|---------------|-----------|------|
+{% for run in runs %}
+| {{ run.label }} | {{ run.result.total_launches }} | {{ "%.1f" | format(run.result.total_periods * 7 / 30) }} | {{ "%.0f" | format(run.result.total_cost_million) }} | {{ "%.4f" | format(run.result.cumulative_risk) }} |
+{% endfor %}
+
+{% set min_launches = runs | map(attribute='result.total_launches') | min %}
+{% set max_launches = runs | map(attribute='result.total_launches') | max %}
+{% set min_cost = runs | map(attribute='result.total_cost_million') | min %}
+{% set max_cost = runs | map(attribute='result.total_cost_million') | max %}
+{% set min_periods = runs | map(attribute='result.total_periods') | min %}
+{% set max_periods = runs | map(attribute='result.total_periods') | max %}
+
+The {{ runs | length }} scenarios span {{ min_launches }}–{{ max_launches }} launches,
+{{ "%.1f" | format(min_periods * 7 / 30) }}–{{ "%.1f" | format(max_periods * 7 / 30) }} months,
+and ${{ "%.0f" | format(min_cost) }}–${{ "%.0f" | format(max_cost) }} M in program cost.
+
+{% endif %}
+
+---
+
+## Discussion
+
+{% if runs | length == 1 %}
+{% set run = runs[0] %}
+The {{ run.result.total_launches }}-launch campaign averages
+{{ "%.2f" | format(run.result.total_launches / run.result.total_periods) }} launches per period
+(~{{ "%.2f" | format(run.result.total_launches / (run.result.total_periods * 7 / 30)) }} per calendar month).
+Total program cost of ${{ "%.0f" | format(run.result.total_cost_million) }} M reflects the vehicle mix
+selected by the beam-search optimizer for objective weights
+(w₁={{ run.config.weights.w_launches }}, w₂={{ run.config.weights.w_time }}, w₃={{ run.config.weights.w_cost }}).
+Cumulative proximity risk of {{ "%.4f" | format(run.result.cumulative_risk) }} is driven by
+periods of simultaneous crew and cargo vehicle presence at the assembly site.
+
+{% else %}
+{% set min_launches = runs | map(attribute='result.total_launches') | min %}
+{% set max_launches = runs | map(attribute='result.total_launches') | max %}
+{% set min_periods  = runs | map(attribute='result.total_periods')  | min %}
+{% set max_periods  = runs | map(attribute='result.total_periods')  | max %}
+{% set min_cost     = runs | map(attribute='result.total_cost_million') | min %}
+{% set max_cost     = runs | map(attribute='result.total_cost_million') | max %}
+The ensemble spans {{ min_launches }}–{{ max_launches }} launches,
+{{ min_periods }}–{{ max_periods }} periods
+({{ "%.1f" | format(min_periods * 7 / 30) }}–{{ "%.1f" | format(max_periods * 7 / 30) }} months),
+and ${{ "%.0f" | format(min_cost) }}–${{ "%.0f" | format(max_cost) }} M in cost.
+The {{ "%.0f" | format((max_cost - min_cost) / min_cost * 100) if min_cost > 0 else 0 }}% cost range
+and {{ "%.0f" | format((max_periods - min_periods) / min_periods * 100) if min_periods > 0 else 0 }}% duration
+range demonstrate that objective weight selection meaningfully shifts the campaign architecture.
+
+Reducing total launches by consolidating payload onto fewer heavy-lift vehicles tends to lengthen
+the campaign because cargo arrives less frequently. Schedule-minimal solutions saturate the
+pad-turnaround constraint and push launch count toward its upper bound.
+Cost-optimal solutions substitute cheaper vehicles (New Glenn $90 M, Crew Dragon $220 M/mission)
+wherever capacity allows, avoiding SLS Block 2 ($4,100 M) except when launch count dominates.
+
+{% endif %}
+
+---
+
+*Report auto-generated by the L4 Assembly Simulation Tool.*

@@ -20,6 +20,7 @@ from simulation.report_charts import (
 
 REPORT_DIR = Path(__file__).parent.parent / "report"
 TEMPLATE_PATH = REPORT_DIR / "sections" / "results.tex.j2"
+MD_TEMPLATE_PATH = REPORT_DIR / "sections" / "results.md.j2"
 GENERATED_DIR = REPORT_DIR / "generated"
 
 
@@ -127,6 +128,24 @@ def _sweep_solution_space(run: dict) -> list[dict]:
                 except Exception:
                     continue
     return points
+
+
+def build_markdown_report(runs: list[dict]) -> str:
+    """Render the results Markdown template and return the Markdown string."""
+    env = Environment(
+        loader=FileSystemLoader(str(MD_TEMPLATE_PATH.parent)),
+        variable_start_string=r"{{",
+        variable_end_string=r"}}",
+        block_start_string=r"{%",
+        block_end_string=r"%}",
+        comment_start_string=r"{#",
+        comment_end_string=r"#}",
+        trim_blocks=True,
+        lstrip_blocks=True,
+        keep_trailing_newline=True,
+    )
+    template = env.get_template("results.md.j2")
+    return template.render(runs=runs)
 
 
 def build_report(runs: list[dict]) -> bytes:

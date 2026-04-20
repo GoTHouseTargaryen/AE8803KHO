@@ -84,11 +84,15 @@ Eq.~(\ref{eq:penalty}).
   \label{fig:resources_{{ loop.index }}}
 \end{figure}
 
-Figure~\ref{fig:cost_{{ loop.index }}} shows a horizontal bar
-chart of total program cost allocated to each launch vehicle.
-Bar length corresponds to the product of the number of flights
-of that vehicle and the weighted average launch cost; numeric
-cost labels are displayed at the end of each bar.
+Figure~\ref{fig:cost_{{ loop.index }}} shows a two-panel
+horizontal bar chart of total program cost. The upper panel
+lists cargo launch vehicles (blue bars) and the lower panel
+lists crew vehicles (orange bars). Each bar length equals the
+catalog unit price multiplied by the number of flights of that
+vehicle; the first-flight cost premium (Eq.~\ref{eq:firstflight})
+is included where applicable. Numeric cost labels (\$M) are
+displayed at the end of each bar; vehicles with zero flights
+are omitted.
 
 \begin{figure}[htbp]
   \centering

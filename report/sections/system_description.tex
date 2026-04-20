@@ -116,3 +116,160 @@ with variable speed; and multi-scenario Pareto frontier
 visualization. The \texttt{/api/report} endpoint accepts tagged
 runs and returns a compiled PDF of this document with
 auto-generated results sections.
+
+\subsection{How to Use the Simulation}
+
+\paragraph{Prerequisites.}
+The simulation requires Python~3.12 with the packages listed in
+\texttt{requirements.txt} and Node.js~20 for the frontend.
+
+\paragraph{Step 1 — Start the Flask API.}
+From the repository root:
+\begin{verbatim}
+py -3.12 -m flask --app simulation.app run
+\end{verbatim}
+The server listens on \texttt{http://localhost:5000} and exposes
+five REST endpoints: \texttt{GET /api/vehicles/cargo},
+\texttt{GET /api/vehicles/crew}, \texttt{GET /api/transfer-stages},
+\texttt{POST /api/simulate}, and \texttt{POST /api/report}.
+
+\paragraph{Step 2 — Start the Next.js frontend.}
+\begin{verbatim}
+cd frontend && npm run dev
+\end{verbatim}
+Open \texttt{http://localhost:3000} in a browser.
+If the API is unreachable the Configuration panel displays a
+red warning banner with the corrective command.
+
+\paragraph{Step 3 — Configure the spacecraft.}
+Use the \emph{Spacecraft} sliders to set total vehicle length
+(0.5--5\,km) and select propulsion and power types. The
+parametric generator maps these choices to a topologically valid
+module set and assembly DAG automatically.
+
+\paragraph{Step 4 — Select launch vehicles.}
+The \emph{Cargo Vehicles}, \emph{Crew Vehicles}, and
+\emph{Transfer Stages} selectors enumerate the full catalog.
+Enabling a vehicle makes it eligible for the optimizer; disabling
+it removes it from the search space entirely. At least one crew
+vehicle must be selected for manned assembly.
+
+\paragraph{Step 5 — Set objective weights and solver parameters.}
+Drag the three weight sliders ($w_1, w_2, w_3$) to reflect
+mission priorities. DP parameters (beam width, period length,
+horizon) can be tuned under the \emph{Solver Parameters}
+section. Larger beam widths improve solution quality at the cost
+of runtime; the default $K = 100$ is adequate for spacecraft
+with up to~50 modules.
+
+\paragraph{Step 6 — Run the optimizer.}
+Click \emph{Run Simulation}. The button is disabled while the
+solver is active. On completion the right panel switches to the
+Results Dashboard automatically.
+
+\paragraph{Step 7 — Inspect results.}
+The dashboard shows a Gantt timeline of launches and assembly
+periods, per-period resource utilization (crew hours, robotic
+hours), a cost breakdown split by cargo and crew vehicles, and a
+2D module assembly progression view. Playback controls allow
+frame-by-frame inspection of the assembly sequence.
+
+\paragraph{Step 8 — Tag runs and compile the report.}
+Click the star icon on any result to add it to the
+\emph{Tagged Runs} sidebar. Once two or more runs are tagged a
+Pareto frontier is rendered comparing all tagged scenarios.
+The \emph{Compile Report} button POSTs all tagged runs to
+\texttt{/api/report} and downloads a compiled PDF of this
+document with auto-generated results sections for each scenario.
+
+\subsection{Frontend Component Guide}
+
+Table~\ref{tab:components} maps each visible UI section to its
+source component and the store slice it reads or writes.
+
+\begin{table}[htbp]
+\centering
+\caption{Frontend component map.}
+\label{tab:components}
+\begin{tabular}{lll}
+\toprule
+UI Panel & Component & Store slice \\
+\midrule
+Spacecraft sliders    & \texttt{ConfigPanel}    & \texttt{spacecraft} \\
+Module override table & \texttt{ModuleEditor}   & \texttt{spacecraft.modules} \\
+Vehicle checkboxes    & \texttt{VehicleSelector}& \texttt{selectedCargo/Crew/Stages} \\
+Weight sliders        & \texttt{WeightSliders}  & \texttt{weights} \\
+Crew parameters       & \texttt{ConfigPanel}    & \texttt{maxEvaHours}, \texttt{maxPairsPerIva} \\
+Proximity model       & \texttt{ConfigPanel}    & \texttt{proximity} \\
+Run button            & \texttt{ConfigPanel}    & \texttt{isRunning}, \texttt{result} \\
+Gantt chart           & \texttt{GanttChart}     & \texttt{result.timeline} \\
+Resource chart        & \texttt{ResourceChart}  & \texttt{result.timeline} \\
+Cost breakdown        & \texttt{CostBreakdown}  & \texttt{result.timeline} \\
+Module progression    & \texttt{ModuleView}     & \texttt{result.timeline} \\
+Tagged runs sidebar   & \texttt{TaggedRunsSidebar} & \texttt{taggedRuns} \\
+Pareto frontier       & \texttt{ParetoChart}    & \texttt{taggedRuns} \\
+Compile report button & \texttt{CompileReportButton} & \texttt{taggedRuns} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The global state is managed by a single Zustand store
+(\texttt{useSimStore}). All components are pure consumers of the
+store; no prop-drilling occurs. On page load \texttt{ConfigPanel}
+fetches the vehicle and transfer-stage catalogs from the Flask API
+and seeds the store; subsequent runs reuse the cached catalogs.
+
+\subsection{Objective Weight Effects}
+
+The three sliders control the relative importance of launches
+($w_1$), campaign duration ($w_2$), and total cost ($w_3$) via
+the normalized cost function (Eq.~\ref{eq:cost}). Their effects
+on vehicle selection and scheduling are described below.
+
+\paragraph{Launch count weight $w_1$.}
+Increasing $w_1$ penalizes any additional launch regardless of
+vehicle. The optimizer responds by selecting high-capacity
+vehicles (Starship at 150\,t, SLS Block~2 at 130\,t) to
+consolidate payload into fewer flights. In the extreme case
+($w_1 \gg w_2, w_3$) the planner may choose a single
+Starship flight over four Falcon Heavy flights even though the
+latter would be considerably cheaper, because the launch-count
+contribution to $J$ dominates. Crew rotations are also
+deferred: the solver schedules longer crew tours and avoids
+early re-docking flights that would increment $N_{\mathrm{launches}}$.
+
+\paragraph{Time weight $w_2$.}
+Increasing $w_2$ penalizes elapsed periods. The optimizer
+responds by frontloading cargo: modules that have long assembly
+times are launched in the earliest eligible period so assembly
+can begin immediately rather than waiting for a larger batch.
+Crew vehicles are launched as soon as the first Airlock or
+Docking Node is complete (satisfying the boarding prerequisite)
+rather than being deferred. If multiple crew vehicles are
+available, the one with the shortest lead time is preferred.
+Low-energy WSB transfers (120-day transit) are deprioritized
+in favour of the faster Hohmann-like transfer (60-day transit)
+even though WSB requires less propellant.
+
+\paragraph{Cost weight $w_3$.}
+Increasing $w_3$ penalizes total program expenditure. The
+optimizer substitutes cheap vehicles wherever capacity allows:
+New Glenn (\$90\,M, 45\,t LEO) is preferred over Falcon Heavy
+(\$150\,M, 64\,t LEO) when the module manifest fits within
+45\,t. Similarly, Crew Dragon (\$220\,M/mission) is preferred
+over Orion (\$600\,M/mission) or Starliner (\$360\,M/mission)
+for equivalent crew counts. SLS Block~2 (\$4{,}100\,M) is
+effectively excluded from cost-optimal plans; it only appears
+when $w_1$ is high and its 130\,t capacity is needed to reduce
+launch count. First-flight cost premiums further penalize
+introducing new vehicle types, so cost-optimal plans tend to
+reuse fewer vehicle types across the campaign.
+
+\paragraph{Balancing the weights.}
+Equal weights ($w_1 = w_2 = w_3 = 1$) typically yield a plan
+that uses Falcon Heavy or New Glenn for cargo, Crew Dragon for
+crew rotations, and NTP Tug or Centaur-derived transfer stages
+for L4 delivery. Skewing weights produces qualitatively
+different architectures; comparing two or three weight
+configurations on the Pareto frontier view reveals the trade
+space most clearly.

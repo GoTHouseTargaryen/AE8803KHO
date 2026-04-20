@@ -41,10 +41,18 @@ with safe normalization:
   \label{eq:cost}
 \end{equation}
 
-\noindent where weights $w_1, w_2, w_3 \geq 0$ are user-adjustable.
-Upper bounds are $N_{\mathrm{launches}}^{\max} = 2|\mathcal{M}_{\mathrm{total}}|$,
-$T^{\max} = T_{\mathrm{horizon}}$, and
+\noindent where weights $w_1, w_2, w_3 \geq 0$ are user-adjustable via
+sliders in the web interface.
+Upper bounds used for safe normalization are
+$N_{\mathrm{launches}}^{\max} = 2|\mathcal{M}_{\mathrm{total}}|$,
+$T^{\max} = T_{\mathrm{horizon}}$ (default 200 periods), and
 $C^{\max} = \$2{,}000|\mathcal{M}_{\mathrm{total}}|$\,M.
+The $C^{\max}$ ceiling exceeds any single mid-size-vehicle launch cost
+(e.g.\ \$150\,M for Falcon Heavy) while remaining below the total
+expenditure of a large all-SLS campaign
+($\$4{,}100\,\mathrm{M}\times |\mathcal{M}|$), ensuring that the
+normalized cost term stays in the range $[0,1]$ for representative
+mission architectures.
 Safe normalization returns 0 when the upper bound is zero.
 
 \subsection{Transfer Model}
@@ -184,11 +192,13 @@ nuclear certification, and export licensing:
   \label{eq:leadtime}
 \end{equation}
 
-\noindent Vehicles are classified by status:
-operational vehicles have $\tau_v = 4$--26 periods
-(1--6 months); near-term vehicles
-$\tau_v = 13$--18 periods (3--4 months); and vehicles
-in development $\tau_v = 78$ periods ($\sim$18 months).
+\noindent Vehicles are classified by readiness status:
+\emph{Operational} vehicles (Falcon Heavy, SLS Block~2, Vulcan Centaur,
+Ariane~6, GSLV Mk~III, H3) have $\tau_v = 4$--26 periods
+(1--6 calendar months); \emph{Near-term} vehicles (Starship, New Glenn,
+Starship HLS) have $\tau_v = 13$--26 periods (3--6 months); and
+\emph{In-development} vehicles (KSLV-III) have
+$\tau_v = 78$ periods ($\sim$18 months).
 
 Contracting, integration, and mission-assurance work
 incurred during the lead-time window constitutes a
@@ -231,19 +241,39 @@ interval to model launch pad refurbishment:
 Exact DP over the assembled module bitmask is intractable for
 structures with $|\mathcal{M}_{\mathrm{total}}| \geq 20$
 ($2^{50}$ states for a 50-module spacecraft). Forward beam search
-retains only the top-$K$ states per epoch ranked by the
-progress heuristic:
+retains only the top-$K$ states per epoch. States are ranked by a
+three-tier lexicographic key $\mathbf{k}(S)$:
 
 \begin{equation}
-  \phi(S) = 10\,|\mathcal{M}_{\mathrm{built}}|
-          + 3\,|\mathcal{D} \setminus \mathcal{M}_{\mathrm{built}}|
+  \mathbf{k}(S) = \bigl(
+    -|\mathcal{M}_{\mathrm{built}}|,\;
+    -\phi(S),\;
+    J(S)
+  \bigr)
+  \label{eq:beamsort}
+\end{equation}
+
+\noindent sorted in ascending order (lower is better), where
+$\phi(S)$ is the pipeline-depth heuristic:
+
+\begin{equation}
+  \phi(S) = 3\,|\mathcal{M}_{\mathrm{built}}|
+          + 2\,|\mathcal{D} \setminus \mathcal{M}_{\mathrm{built}}|
           + |\mathcal{Q}|
-          + (5 + 3r)\cdot\mathbf{1}[n_{\mathrm{crew}}>0]
-          + 0.5\,|\mathcal{W}|
+          + \sum_{v \in \mathcal{C}(t)} r_v
   \label{eq:phi}
 \end{equation}
 
-\noindent where $r = |\mathrm{avail}(\mathcal{M}_{\mathrm{built}})
-\cap \mathcal{D}|$ is modules ready to assemble on-site, and
-$\mathcal{W}$ is the current WIP set. Default beam width:
-$K = 100$.
+\noindent and $r_v$ is the periods remaining in crew vehicle $v$'s
+rotation, $\mathcal{D} \setminus \mathcal{M}_{\mathrm{built}}$ is the
+set of modules delivered to site but not yet assembled, and $J(S)$ is
+the current weighted cost (Eq.~\ref{eq:cost}).
+
+The primary tier guarantees that states completing more modules are
+never discarded in favor of cheaper but idle states. The secondary
+tier $\phi(S)$ rewards pipeline depth: delivered cargo, modules in
+transit, and a fresh crew rotation each contribute positively, so the
+beam diversifies across scheduling options rather than collapsing
+to a single trajectory. The tertiary tier resolves ties by objective
+value, allowing the cost-weight slider to discriminate between
+otherwise equivalent schedules. Default beam width: $K = 100$.
