@@ -52,6 +52,146 @@ to the module-set bitmask---is intractable beyond approximately
 20~modules, motivating the beam-search approximation in
 Section~\ref{sec:beam}.
 
+\subsection{Modeling Assumptions}
+\label{sec:assumptions}
+
+The model rests on a set of simplifying assumptions organized into
+four categories: orbital mechanics, assembly operations, vehicle
+logistics, and program-level scope. Table~\ref{tab:assumptions}
+lists each assumption together with its category, the quantity it
+fixes or bounds, and its rationale classification.
+
+\begin{table}[htbp]
+\centering
+\caption{Summary of modeling assumptions.}
+\label{tab:assumptions}
+\begin{tabular}{p{4.5cm}lp{5.5cm}}
+\toprule
+Assumption & Category & Rationale \\
+\midrule
+%--- Orbital mechanics
+Fixed $\Delta v$ (4.1 / 3.8 km/s) for Hohmann / WSB
+  & Orbital & Avoids full ephemeris optimization; within
+    $\pm$5\% of patched-conic estimates for Sun-Earth L4 \\
+Impulsive burn (Tsiolkovsky, no gravity losses)
+  & Orbital & Conservative upper bound; losses $<$2\% for
+    high-$I_{sp}$ stages \\
+L4 stationkeeping $\Delta v \approx 0$
+  & Orbital & L4 is linearly stable; stationkeeping budget
+    ($<$5\,m/s/yr) is negligible versus transfer $\Delta v$ \\
+No intermediate staging or gravity assists
+  & Orbital & Direct LEO $\rightarrow$ L4 arc bounds
+    propellant use; cis-lunar waypoints are a future extension \\
+\midrule
+%--- Assembly operations
+Deterministic assembly durations
+  & Assembly & Expected-value baseline; stochastic extensions
+    require Monte Carlo propagation outside DP scope \\
+Homogeneous crew capability
+  & Assembly & Captures aggregate labor availability; task
+    specialization data for L4 crews is unavailable \\
+Constant 60\% EVA duty cycle ($\eta_d = 0.6$)
+  & Assembly & Consistent with ISS operational data
+    \cite{mcdonnell_iss_eva}; no medical holds or weather modeled \\
+Fixed robotic time penalty ($\eta_r = 1.5$)
+  & Assembly & Derived from ISS robotic assembly benchmarks;
+    no learning curve or arm degradation \\
+\midrule
+%--- Vehicle and logistics
+Point-estimate catalog costs
+  & Logistics & Bulk discounts / escalation are second-order
+    effects; first-flight premium captures contracting overhead \\
+Uniform pad turnaround of 14 days (2 periods)
+  & Logistics & Conservative floor for modern expendables;
+    adjustable per vehicle in future parameterization \\
+Reusable tugs return instantly at zero marginal cost
+  & Logistics & Simplifies tug state tracking; return $\Delta v$
+    and refueling time are small relative to campaign duration \\
+No vehicle failures or partial mission success
+  & Logistics & Failure-mode analysis requires reliability data
+    not yet available for near-term vehicles \\
+\midrule
+%--- Program scope
+No in-situ resource utilization at L4
+  & Program & In-situ propellant production at Sun-Earth L4 is
+    speculative; excluded to keep scope tractable \\
+Single assembly site; no distributed staging
+  & Program & Multi-site coordination adds combinatorial
+    complexity beyond the current DP formulation \\
+Schedule margin and contingency cost excluded
+  & Program & Deterministic model cannot propagate margin;
+    a 20--30\% schedule reserve is typical for technology
+    development programs \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Orbital mechanics.}
+The two $\Delta v$ values (4.1 and 3.8\,km/s) are point estimates
+drawn from simplified circular-coplanar patched-conic analysis of
+the Sun-Earth L4 geometry~\cite{folta_l4_transfers}. Full
+ephemeris-based trajectory optimization would vary these values
+by a few percent depending on launch date and phasing, but the
+dominant sensitivity is to transfer-stage $I_{sp}$ and payload
+mass, not to $\Delta v$ precision at this level. The Tsiolkovsky
+equation assumes an impulsive burn; for chemical stages with
+typical burn durations of a few hundred seconds, gravity and
+finite-burn losses amount to less than 2\% of the ideal
+$\Delta v$, well within the uncertainty of the catalog mass
+values. Earth-Sun L4 is a linearly stable equilibrium of the
+circular-restricted three-body problem~\cite{l4_stability};
+numerical integration studies confirm that stationkeeping
+requirements are on the order of 5\,m/s per year, three orders
+of magnitude below the transfer $\Delta v$, justifying its
+omission.
+
+\paragraph{Assembly operations.}
+Assembly hour estimates are derived from ISS analog data and
+engineering judgment. Treating them as deterministic constants
+is consistent with a preliminary design study where schedule
+distributions are not yet characterized; a stochastic extension
+would propagate uncertainty through a Monte Carlo ensemble of
+DP solutions. The 60\% EVA duty cycle ($\eta_d$) is consistent
+with published ISS EVA utilization rates~\cite{mcdonnell_iss_eva},
+which average 5.5 productive hours out of a nominal 6.5-hour
+planned EVA. Crew homogeneity collapses the specialist-vs-generalist
+crew composition problem: for a planning tool at this fidelity,
+total available crew-hours is the binding constraint, not role
+allocation within a period. The robotic time penalty ($\eta_r =
+1.5$) reflects the additional overhead of teleoperation---camera
+alignment, arm repositioning, verification pauses---documented
+in ISS Canadarm-2 assembly records.
+
+\paragraph{Vehicle and logistics.}
+Launch costs are taken from publicly available contract disclosures
+and NASA Office of Inspector General reports; they represent
+single-mission list prices, not bulk-buy agreements. The first-flight
+cost premium (Eq.~\ref{eq:firstflight}) partially accounts for
+contract initiation overhead, but volume discounts that would
+apply to a high-flight-rate campaign are not modeled. The 14-day
+pad turnaround is an empirical lower bound for modern expendable
+vehicles (Falcon Heavy demonstrated 21-day turnaround on consecutive
+commercial missions); rapid-reuse vehicles such as Starship could
+eventually achieve shorter intervals, but this has not yet been
+demonstrated at operational cadence. Reusable transfer stages (SEP
+and NTP tugs) are assumed to return to LEO for reassignment without
+modeled refueling time or cost; for a preliminary analysis, the
+dominant constraint is the tug's $\Delta v$ budget and cargo
+capacity, not its refueling schedule.
+
+\paragraph{Program scope.}
+The single-site assumption is the most consequential scope
+restriction: in practice, an L4 campaign might stage propellant
+at the Earth-Moon Gateway or pre-position hardware at a
+cis-lunar depot before the final transfer. Multi-site staging
+would require a two-level DP or a network-flow model that tracks
+propellant inventory as an additional state dimension, which
+is left for future work. The omission of schedule margin is
+standard in deterministic planning tools at the conceptual design
+level; a rule-of-thumb 20--30\% reserve on duration should be
+added when interpreting campaign timelines for programmatic
+decision-making.
+
 \subsection{Multi-Objective Cost Function}
 \label{sec:cost}
 
