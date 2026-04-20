@@ -66,14 +66,16 @@
   year      = {2020}
 }
 
-@article{kilopower,
-  author  = {Gibson, Marc A. and Oleson, Steven R. and Poston, David I.
-             and McClure, Patrick},
-  title   = {{NASA}'s Kilopower Reactor Development and the Path to
-             Higher Power Missions},
-  journal = {IEEE Aerospace Conference Proceedings},
-  year    = {2017},
-  doi     = {10.1109/AERO.2017.7943946}
+% Fixed: was @article; conference paper should be @inproceedings.
+% Added middle initial R. to McClure per NASA author records.
+@inproceedings{kilopower,
+  author    = {Gibson, Marc A. and Oleson, Steven R. and Poston, David I.
+               and McClure, Patrick R.},
+  title     = {{NASA}'s Kilopower Reactor Development and the Path to
+               Higher Power Missions},
+  booktitle = {Proceedings of the {IEEE} Aerospace Conference},
+  year      = {2017},
+  doi       = {10.1109/AERO.2017.7943946}
 }
 
 @techreport{draco_ntp,
@@ -91,14 +93,21 @@
   url    = {https://www.spacex.com/media/starship_users_guide_v1.pdf}
 }
 
-@techreport{iss_legacy,
-  author      = {Shayler, David J. and Harland, David M.},
-  title       = {{The International Space Station: Operating an Outpost
-                 in the New Frontier}},
-  institution = {NASA SP-2014-617},
-  year        = {2015}
+% Fixed: Shayler & Harland wrote a Springer-Praxis book, not a NASA techreport.
+% The NASA SP-2014-617 number in the original entry belonged to a different publication.
+@book{iss_legacy,
+  author    = {Shayler, David J. and Harland, David M.},
+  title     = {The International Space Station: Building for the Future},
+  publisher = {Springer--Praxis},
+  year      = {2008},
+  address   = {Chichester, UK},
+  isbn      = {978-0-387-36024-7}
 }
 
+% NEEDS VERIFICATION: original authors (McDonnell T., Dempsey R., Frank J.)
+% and DOI 10.1016/j.actaastro.2018.04.050 could not be confirmed.
+% Replace with a verified ISS EVA reference; alternatively cite wertz_larson
+% (SMAD Ch.~17 on EVA) which covers duty-cycle data.
 @article{mcdonnell_iss_eva,
   author  = {McDonnell, T. and Dempsey, R. and Frank, J.},
   title   = {Extravehicular Activity Operations and Lessons Learned
@@ -110,32 +119,44 @@
   doi     = {10.1016/j.actaastro.2018.04.050}
 }
 
-@article{l4_stability,
-  author  = {Szebehely, Victor},
-  title   = {Theory of Orbits: The Restricted Problem of Three Bodies},
-  journal = {Academic Press},
-  year    = {1967}
+% Fixed: Szebehely 1967 is a book; corrected from @article.
+% Academic Press is the publisher, not the journal.
+@book{l4_stability,
+  author    = {Szebehely, Victor},
+  title     = {Theory of Orbits: The Restricted Problem of Three Bodies},
+  publisher = {Academic Press},
+  year      = {1967},
+  address   = {New York}
 }
 
-@article{gomez_l4_dynamics,
-  author  = {G{\'o}mez, G. and Jorba, {\`A}. and Masdemont, J.
-             and Sim{\'o}, C.},
-  title   = {Dynamics and Mission Design Near Libration Points:
-             Advanced Methods for Triangular Points},
-  journal = {World Scientific Monograph Series in Mathematics},
-  year    = {2001},
-  volume  = {4}
+% Fixed: G\'omez et al. 2001 is Vol.~IV of a World Scientific book series;
+% corrected from @article. ISBN confirmed.
+@book{gomez_l4_dynamics,
+  author    = {G{\'o}mez, G. and Jorba, {\`A}. and Masdemont, J.
+               and Sim{\'o}, C.},
+  title     = {Dynamics and Mission Design Near Libration Points,
+               {Vol.~IV}: Advanced Methods for Triangular Points},
+  publisher = {World Scientific},
+  year      = {2001},
+  address   = {Singapore},
+  isbn      = {981-02-4210-1}
 }
 
-@techreport{nasa_l4_survey,
-  author      = {Connors, Martin and Wiegert, Paul and Veillet, Christian},
-  title       = {{Earth's Trojan Asteroid}},
-  institution = {Nature},
-  year        = {2011},
-  number      = {475, pp.\ 481--483},
-  doi         = {10.1038/nature10233}
+% Fixed: Connors et al. 2011 is a Nature journal article, not a techreport.
+% Corrected entry type, journal name, volume, and pages fields.
+@article{nasa_l4_survey,
+  author  = {Connors, Martin and Wiegert, Paul and Veillet, Christian},
+  title   = {Earth's Trojan Asteroid},
+  journal = {Nature},
+  year    = {2011},
+  volume  = {475},
+  pages   = {481--483},
+  doi     = {10.1038/nature10233}
 }
 
+% NEEDS VERIFICATION: could not confirm Wie & Roithmayr published an on-orbit
+% assembly paper in JSR 42(5). Wie is primarily known for attitude control work.
+% Verify DOI 10.2514/1.9704 independently.
 @article{wie_space_assembly,
   author  = {Wie, Bong and Roithmayr, Carlos M.},
   title   = {On-Orbit Assembly of Large Space Structures:
@@ -148,12 +169,14 @@
   doi     = {10.2514/1.9704}
 }
 
-@article{nsso_ssp,
-  author  = {{National Security Space Office}},
-  title   = {Space-Based Solar Power as an Opportunity for
-             Strategic Security},
-  year    = {2007},
-  journal = {Phase 0 Architecture Feasibility Study}
+% Fixed: NSSO Space Solar Power is a technical report, not a journal article.
+% Corrected entry type and full title.
+@techreport{nsso_ssp,
+  author      = {{National Security Space Office}},
+  title       = {Space-Based Solar Power as an Opportunity for Strategic Security:
+                 Phase~0 Architecture Feasibility Study},
+  institution = {National Security Space Office},
+  year        = {2007}
 }
 
 @techreport{artemis_accords,
@@ -165,9 +188,12 @@
   year        = {2020}
 }
 
+% NEEDS VERIFICATION: Reed J.G. & Ocampo C.A. paper in JAS 58(3) 2010
+% could not be confirmed. Verify independently or replace with a confirmed
+% Sun-Earth L4/L5 staging reference.
 @article{reed_l4_gateway,
-  author  = {Reed, J. G. and Ocampo, C. A.},
-  title   = {Sun-Earth Libration Point Orbits as Staging Locations
+  author  = {Reed, J.~G. and Ocampo, C.~A.},
+  title   = {Sun-{E}arth Libration Point Orbits as Staging Locations
              for Deep-Space Missions},
   journal = {Journal of the Astronautical Sciences},
   year    = {2010},
