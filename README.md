@@ -126,7 +126,7 @@ Click **Compile Report**. The server will:
 
 | Vehicle | Nation | LEO (t) | Cost ($M) | Lead (mo) | Status |
 |---------|--------|---------|-----------|-----------|--------|
-| Starship | USA | 150 | 200 | 4.1 | Near-term |
+| Starship | USA | 150 | 100 | 4.1 | Near-term |
 | SLS Block 2 | USA | 130 | 4,100 | 6.0 | Operational |
 | Falcon Heavy | USA | 64 | 150 | 0.9 | Operational |
 | New Glenn | USA | 45 | 90 | 3.0 | Near-term |

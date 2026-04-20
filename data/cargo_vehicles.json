@@ -1,7 +1,7 @@
 [
   {"name": "Falcon Heavy",   "nation": "USA",         "payload_to_leo_kg": 63800,  "fairing_volume_m3": 145,  "cost_per_launch_million": 150,  "l4_direct": false, "status": "Operational",    "lead_time_periods": 4,  "first_flight_cost_premium": 0.08},
   {"name": "SLS Block 2",    "nation": "USA",         "payload_to_leo_kg": 130000, "fairing_volume_m3": 325,  "cost_per_launch_million": 4100, "l4_direct": true,  "status": "Operational",    "lead_time_periods": 26, "first_flight_cost_premium": 0.12},
-  {"name": "Starship",       "nation": "USA",         "payload_to_leo_kg": 150000, "fairing_volume_m3": 1000, "cost_per_launch_million": 200,  "l4_direct": true,  "status": "Near-term",      "lead_time_periods": 18, "first_flight_cost_premium": 0.20},
+  {"name": "Starship",       "nation": "USA",         "payload_to_leo_kg": 150000, "fairing_volume_m3": 1000, "cost_per_launch_million": 100,  "l4_direct": true,  "status": "Near-term",      "lead_time_periods": 18, "first_flight_cost_premium": 0.20},
   {"name": "Vulcan Centaur", "nation": "USA",         "payload_to_leo_kg": 27200,  "fairing_volume_m3": 95,   "cost_per_launch_million": 130,  "l4_direct": false, "status": "Operational",    "lead_time_periods": 8,  "first_flight_cost_premium": 0.08},
   {"name": "New Glenn",      "nation": "USA",         "payload_to_leo_kg": 45000,  "fairing_volume_m3": 160,  "cost_per_launch_million": 90,   "l4_direct": false, "status": "Near-term",      "lead_time_periods": 13, "first_flight_cost_premium": 0.20},
   {"name": "H3",             "nation": "Japan",       "payload_to_leo_kg": 6500,   "fairing_volume_m3": 40,   "cost_per_launch_million": 50,   "l4_direct": false, "status": "Operational",    "lead_time_periods": 13, "first_flight_cost_premium": 0.10},

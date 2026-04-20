@@ -12,11 +12,20 @@ discretized into configurable periods of length $\Delta t$
                 \mathcal{Q}(t),\; n_{\mathrm{tugs}}(t)\bigr\}
 \end{equation}
 
-\noindent where $\mathcal{M}(t)$ is the set of completed modules,
-$\mathcal{C}(t)$ is the set of docked crew vehicles with their
-remaining rotation periods, $\mathcal{Q}(t)$ is the cargo-in-transit
-queue with arrival times, and $n_{\mathrm{tugs}}(t)$ is the number
-of reusable transfer stages available at LEO.
+\noindent where $\mathcal{M}(t)$ is the set of completed module
+identifiers, tracking cumulative build progress as a monotonically
+growing set; $\mathcal{C}(t)$ is the set of docked crew vehicles
+together with their remaining rotation periods, enabling the model
+to anticipate crew expiration and schedule rotations before assembly
+stalls; $\mathcal{Q}(t)$ is the ordered queue of cargo in transit,
+each entry carrying the module manifest and the scheduled arrival
+period so the optimizer can pipeline future launches without waiting
+for each flight to land; and $n_{\mathrm{tugs}}(t)$ counts reusable
+transfer stages currently available at LEO for reassignment to the
+next cargo flight.
+Together these four quantities constitute the minimal information
+needed to evaluate all future decisions without referencing
+campaign history.
 
 At each epoch the optimizer selects a decision
 $D(t) = \{\text{launches},\;\text{crew allocation},\;
@@ -29,7 +38,22 @@ equation is
             \bigl[\, c(S, D, t) + V(S', t+1) \,\bigr]
 \end{equation}
 
+\noindent where $V(S,t)$ is the minimum achievable future cost
+(cost-to-go) from state $S$ at epoch $t$ under all subsequent
+optimal decisions; $c(S,D,t)$ is the immediate one-period cost of
+taking decision $D$, which aggregates launch costs, first-flight
+premiums, and fractional weighted-objective penalties; and
+$\mathcal{D}(S,t)$ is the feasible decision set enforced by
+lead-time gates, pad-turnaround constraints, and DAG precedence
+rules.
+The Bellman recursion guarantees global optimality over the finite
+horizon, but its state space---exponential in $|\mathcal{M}|$ due
+to the module-set bitmask---is intractable beyond approximately
+20~modules, motivating the beam-search approximation in
+Section~\ref{sec:beam}.
+
 \subsection{Multi-Objective Cost Function}
+\label{sec:cost}
 
 Three objectives are minimized simultaneously via a weighted sum
 with safe normalization:
@@ -41,11 +65,33 @@ with safe normalization:
   \label{eq:cost}
 \end{equation}
 
-\noindent where weights $w_1, w_2, w_3 \geq 0$ are user-adjustable via
-sliders in the web interface.
-Upper bounds used for safe normalization are
+\noindent Here $N_{\mathrm{launches}}$ is the cumulative number of
+cargo and crew flights dispatched up to the current period;
+$T$ is the number of scheduling periods elapsed;
+$C$ is the total program cost in millions of dollars, including all
+launch fees and first-flight premiums;
+and $w_1, w_2, w_3 \geq 0$ are user-adjustable objective weights
+set via sliders in the web interface.
+A higher weight on any term directs the optimizer to minimize that
+objective more aggressively: $w_1 \gg w_2, w_3$ produces the
+fewest flights at the expense of a longer, more expensive
+campaign; $w_2$ dominant front-loads cargo and shrinks transit
+gaps; $w_3$ dominant substitutes cheap vehicles and delays the
+more expensive ones.
+Dividing each term by its upper bound converts all three to the
+unit interval $[0,1]$, preventing any one objective from dominating
+due to unit or magnitude differences---without normalization, raw
+dollar cost would exceed the raw launch count by three to four
+orders of magnitude.
+
+The upper bound on launch count is
 $N_{\mathrm{launches}}^{\max} = 2|\mathcal{M}_{\mathrm{total}}|$,
-$T^{\max} = T_{\mathrm{horizon}}$ (default 200 periods), and
+which assumes at most two flights per module---a conservative
+ceiling for mixed-capacity fleets.
+The time bound is $T^{\max} = T_{\mathrm{horizon}}$
+(default 200 periods, i.e.\ $\approx 3.8$ years), the maximum
+number of scheduling epochs the solver is allowed to run.
+The cost bound is set adaptively:
 
 \begin{equation}
   C^{\max} = 2\,|\mathcal{M}_{\mathrm{total}}| \cdot \bar{c}
@@ -55,19 +101,22 @@ $T^{\max} = T_{\mathrm{horizon}}$ (default 200 periods), and
 \noindent where $\bar{c}$ is the \emph{median} per-launch cost
 (including first-flight premium, Eq.~\ref{eq:firstflight}) across
 all selected cargo and crew vehicles.
+$|\mathcal{M}_{\mathrm{total}}|$ is the total number of modules to
+be assembled, and the factor of 2 mirrors the launch-count bound.
 A static ceiling such as $\$2{,}000|\mathcal{M}|$\,M
-would compress cheap-vehicle missions (e.g.\ Starship at \$200\,M)
-to less than 10\% of the range, making the cost weight $w_3$
+would compress cheap-vehicle missions (e.g.\ Starship at \$100\,M)
+to less than 5\% of the range, making the cost weight $w_3$
 effectively irrelevant.
-The median-based bound keeps $C/C^{\max}$ in the same 30--80\%
-range as the normalized launch and time terms, so all three
-weights shift the optimizer proportionally.
+The median-based bound tracks the selected vehicle set and keeps
+$C/C^{\max}$ in the same 30--80\% range as the launch and time
+terms, ensuring that all three weights shift the optimizer
+proportionally.
 Safe normalization returns 0 when the upper bound is zero.
 
 \subsection{Transfer Model}
 
-Payload mass delivered to L4 is computed via the Tsiolkovsky
-rocket equation applied to the LEO-to-L4 transfer:
+Payload mass delivered to the L4 assembly site is computed via the
+Tsiolkovsky rocket equation applied to the LEO-to-L4 transfer:
 
 \begin{equation}
   m_{\mathrm{delivered}} = m_{\mathrm{LEO}}
@@ -75,15 +124,31 @@ rocket equation applied to the LEO-to-L4 transfer:
   \label{eq:rocket}
 \end{equation}
 
-\noindent with $g_0 = 9.807 \times 10^{-3}$\,km/s$^2$. Two
-transfer options are modeled: a direct Hohmann-like transfer
+\noindent Here $m_{\mathrm{LEO}}$ is the vehicle's nominal payload
+capacity to low Earth orbit;
+$\Delta v$ is the velocity increment required for the chosen transfer
+trajectory;
+$I_{sp}$ is the specific impulse of the transfer stage propellant
+(in seconds);
+and $g_0 = 9.807 \times 10^{-3}$\,km/s$^2$ converts $I_{sp}$ to
+consistent velocity units.
+This equation quantifies the propulsive cost of moving mass from
+LEO to L4: higher $\Delta v$ or lower $I_{sp}$ reduces deliverable
+mass exponentially.
+Two transfer trajectories are modeled: a direct Hohmann-like arc
 ($\Delta v = 4.1$\,km/s, 60-day transit) and a low-energy
-weak-stability-boundary (WSB) transfer ($\Delta v = 3.8$\,km/s,
+weak-stability-boundary (WSB) trajectory ($\Delta v = 3.8$\,km/s,
 120-day transit)~\cite{belbruno_wbs}.
+The WSB route saves propellant at the cost of doubling transit time;
+when the time weight $w_2$ dominates, the solver prefers the
+Hohmann arc despite its higher propellant consumption.
 
-For LEO-only vehicles that require a transfer stage of dry mass
-$m_d$ and propellant mass $m_p$, the tug mass ratio $R =
-\exp(\Delta v / I_{sp} g_0)$ constrains maximum deliverable cargo:
+Vehicles classified as L4-direct (Starship, SLS Block~2) apply
+Eq.~(\ref{eq:rocket}) to their full LEO payload.
+For LEO-only vehicles that require a separate transfer stage of
+dry mass $m_d$ and propellant mass $m_p$, the tug mass ratio
+$R = \exp(\Delta v / I_{sp} g_0)$ constrains the maximum cargo the
+stage can push to L4:
 
 \begin{align}
   m_{\mathrm{cargo,max}} &= \frac{R\,m_d - (m_d + m_p)}{1 - R}
@@ -92,17 +157,37 @@ $m_d$ and propellant mass $m_p$, the tug mass ratio $R =
                                m_{\mathrm{cargo,max}}\right)
 \end{align}
 
+\noindent $m_{\mathrm{cargo,max}}$ is the maximum payload the tug
+can accelerate to the required $\Delta v$ given its propellant budget;
+$m_{\mathrm{payload}}$ is the cargo mass loaded onto the tug at LEO.
+When the loaded payload exceeds this ceiling, deliverable mass is
+capped, protecting the tug's $\Delta v$ budget.
+This constraint explains why capable LEO-class vehicles such as
+New Glenn (45\,t to LEO) may deliver only $\approx 9$\,t to L4
+when paired with a chemical kick stage: the kick stage's limited
+propellant and modest $I_{sp}$ impose a hard mass ceiling.
+
 \subsection{Crew Model}
 
-All crew across docked vehicles form a single shared pool:
+All crew aboard every docked vehicle are treated as a single
+shared labor pool:
 
 \begin{equation}
   n_{\mathrm{crew}} = \sum_{v \in \mathcal{C}(t)} n_v
 \end{equation}
 
-EVA operations require a buddy system (pairs) and intravehicular
-activity (IVA) monitors. The stable allocation is found
-iteratively:
+\noindent where $n_v$ is the number of crew members aboard vehicle
+$v$ and the sum runs over all currently docked crew vehicles
+$\mathcal{C}(t)$.
+Pooling reflects the mission concept in which crew from different
+vehicles can cross-operate at the assembly site; the total
+$n_{\mathrm{crew}}$ directly determines the EVA and IVA allocation
+each period.
+
+EVA operations require a buddy system (pairs of astronauts working
+together outside) and dedicated intravehicular activity (IVA)
+monitors who remain inside to support and oversee EVA operations.
+The stable allocation is solved iteratively:
 
 \begin{equation}
   n_{\mathrm{IVA}} = \left\lceil
@@ -114,10 +199,17 @@ iteratively:
   \label{eq:eva}
 \end{equation}
 
-\noindent where $k_{\mathrm{IVA}}$ is the maximum EVA pairs per
-IVA monitor (default: 2). Productive assembly hours per period
-are reduced by the duty cycle $\eta_d = 0.6$ to account for
-rest and maintenance overhead:
+\noindent Here $n_{\mathrm{IVA}}$ is the number of crew assigned as
+IVA safety monitors; $n_{\mathrm{EVA\,pairs}}$ is the number of
+two-person EVA teams; and $k_{\mathrm{IVA}}$ is the maximum number
+of EVA pairs a single IVA monitor can safely oversee (default: 2).
+The two equations must be satisfied simultaneously: more EVA pairs
+require more IVA monitors, which in turn reduces the pool available
+for EVA.
+The fixed-point iteration converges in two to three steps for
+crew sizes up to about 14.
+
+Productive assembly hours generated by the EVA crew per period are:
 
 \begin{equation}
   H_{\mathrm{EVA}} = n_{\mathrm{EVA\,pairs}} \cdot h_{\mathrm{session}}
@@ -125,24 +217,56 @@ rest and maintenance overhead:
   \label{eq:crew_hours}
 \end{equation}
 
-Robotic arm stations operate continuously (24/7) but with a
-time penalty $\eta_r = 1.5$ relative to crew EVA:
+\noindent where $h_{\mathrm{session}}$ is the maximum EVA session
+length per pair per day (default: 6\,h), $d_{\mathrm{period}}$ is
+the number of operational days in a scheduling period (default: 7),
+and $\eta_d = 0.6$ is a duty-cycle factor that reduces theoretical
+EVA time to account for sleep, exercise, meals, suit maintenance,
+and contingency task time.
+Effective EVA hours per period therefore never exceed
+$n_{\mathrm{EVA\,pairs}} \times 6 \times 7 \times 0.6 =
+25.2 \times n_{\mathrm{EVA\,pairs}}$\,h, regardless of crew size.
+
+Robotic arm stations operate continuously (24\,h/day) but at a
+time-penalty $\eta_r = 1.5$ relative to crew EVA, reflecting the
+longer setup, repositioning, and verification cycles needed for
+teleoperated assembly:
 
 \begin{equation}
   H_{\mathrm{robotic}} = \frac{n_{\mathrm{arms}} \cdot h_{\mathrm{period}}}{\eta_r}
 \end{equation}
 
-Each crew vehicle trades unused crew capacity for cargo mass:
+\noindent $n_{\mathrm{arms}}$ is the number of robotic arm stations
+assembled and operational at the site (grows as robotic-arm modules
+are completed); $h_{\mathrm{period}} = d_{\mathrm{period}} \times 24$
+is the total hours in a period.
+Each arm therefore contributes $7 \times 24 / 1.5 = 112$\,h of
+equivalent assembly capacity per period---substantially less than
+a full-time human pair but available without crew overhead or
+duty-cycle losses.
+
+Each crew vehicle also carries cargo mass in the space not occupied
+by crew:
 
 \begin{equation}
   m_{\mathrm{cargo}} = m_{\mathrm{capacity}}
                        - n_{\mathrm{crew}} \cdot m_{\mathrm{per\,crew}}
 \end{equation}
 
+\noindent Here $m_{\mathrm{capacity}}$ is the vehicle's total
+pressurized mass capacity; $m_{\mathrm{per\,crew}} = 200$\,kg
+covers the seat, suit, life-support consumables, and personal
+equipment for each crew member.
+For large crewed vehicles such as Starship HLS ($m_{\mathrm{capacity}}
+\gg n_{\mathrm{crew}} \times 200$\,kg), the residual cargo margin
+is substantial and can carry spare parts or supplementary equipment
+alongside crew.
+
 \subsection{Proximity Operations and Congestion Model}
 
 Simultaneous vehicle presence at the assembly site increases
-coordination overhead, reducing effective assembly throughput.
+coordination overhead, reduces usable docking ports, and elevates
+collision risk---all of which reduce effective assembly throughput.
 A scale-adaptive penalty function is applied to available crew
 and robotic hours each period:
 
@@ -152,30 +276,65 @@ and robotic hours each period:
   \label{eq:penalty}
 \end{equation}
 
-\noindent where $n$ is the number of vehicles in proximity
-(crew vehicles plus arriving cargo vehicles), $p =
-|\mathcal{M}_{\mathrm{built}}| / |\mathcal{M}_{\mathrm{total}}|$
-is fractional build progress, and default parameters are
-$\alpha = 0.1$, $\beta = 1.5$, $C_{\mathrm{base}} = 2$,
-$C_{\mathrm{max}} = 10$. Effective assembly hours are:
+\noindent where $n$ is the total number of vehicles in proximity
+(docked crew vehicles plus cargo vehicles actively unloading in that
+period); $p = |\mathcal{M}_{\mathrm{built}}| /
+|\mathcal{M}_{\mathrm{total}}|$ is the fractional build progress
+at the start of the period; $\alpha = 0.1$ is the congestion
+sensitivity parameter; $\beta = 1.5$ is the crowding exponent;
+and $C(p)$ is the scale-adaptive site capacity.
+The exponent $\beta > 1$ produces super-linear penalty growth:
+adding a third vehicle when two are already present costs more
+than adding the second, consistent with empirical coordination-overhead
+models for confined workspaces.
+The adaptive capacity $C(p)$ grows linearly from $C_{\mathrm{base}} = 2$
+(sparse early-campaign structure with few docking nodes) to
+$C_{\mathrm{max}} = 10$ (mature assembled truss with multiple
+berthing ports and cleared approach corridors), reflecting the
+physical reality that a more complete structure can absorb
+simultaneous traffic with proportionally less interference.
+
+The proximity penalty divides both EVA and robotic assembly hours:
 
 \begin{equation}
   H_{\mathrm{EVA,eff}} = \frac{H_{\mathrm{EVA}}}{\pi(n,p)}, \quad
   H_{\mathrm{robotic,eff}} = \frac{H_{\mathrm{robotic}}}{\pi(n,p)}
 \end{equation}
 
-Cumulative collision risk is tracked as a safety metric:
+\noindent A penalty of $\pi = 1.5$, for example, reduces effective
+crew hours by one third---equivalent to losing one EVA pair for
+the entire period.
+Because both crew and robotic operations are penalized equally,
+the model captures the site-level disruption caused by simultaneous
+approach, unloading, and assembly activities.
+
+Cumulative collision risk is accumulated as a separate safety metric:
 
 \begin{equation}
   \mathcal{R} = \sum_{t=0}^{T} \kappa \cdot \binom{n(t)}{2} \cdot \Delta t
   \label{eq:risk}
 \end{equation}
 
+\noindent where $\kappa$ is the baseline collision-probability
+coefficient per vehicle-pair per day; $\binom{n(t)}{2}$ counts
+the number of unique vehicle pairs in proximity at period $t$,
+and the $\Delta t$ factor converts to probability per period.
+The quadratic growth of $\binom{n}{2}$ with $n$ means that
+simultaneous multi-vehicle operations are the dominant risk
+contributor: two vehicles in proximity create one pair ($\mathcal{R}
+\propto 1$), but four vehicles create six pairs ($\mathcal{R}
+\propto 6$) for the same $\Delta t$.
+The accumulated $\mathcal{R}$ is reported as a campaign-level
+safety metric; it is not currently included in the objective $J$
+but could be promoted to a fourth weighted objective in future
+extensions.
+
 \subsection{Partial Assembly (Work-in-Progress)}
 
-Modules whose assembly hours exceed one period's capacity are
-carried forward as work-in-progress (WIP). Remaining hours
-$h_r$ are updated each period:
+Modules whose total assembly hours exceed the available capacity
+in a single period are carried forward as work-in-progress (WIP).
+Remaining hours $h_r$ are decremented each period by the minimum
+of available capacity and outstanding need:
 
 \begin{equation}
   h_r^{(t+1)} = \max\!\left(0,\;
@@ -183,8 +342,20 @@ $h_r$ are updated each period:
   \right)
 \end{equation}
 
-\noindent A module is marked complete when $h_r \leq \varepsilon$
-(default $\varepsilon = 0.01$\,h).
+\noindent Here $h_r^{(t)}$ is the remaining assembly hours for
+a WIP module at the start of period $t$; $H_{\mathrm{available}}^{(t)}$
+is the effective crew or robotic capacity available to that module
+after proximity penalties and other competing tasks are
+deducted.
+A module is marked complete and added to $\mathcal{M}$ when
+$h_r \leq \varepsilon$ (default $\varepsilon = 0.01$\,h).
+WIP tracking is essential for structurally demanding modules
+such as habitat blocks (120\,h of assembly) or fusion reactors
+(160\,h), which require two to four seven-day periods to complete
+even with a full crew complement.
+Without WIP, the model would force all assembly into discrete
+all-or-nothing completions, artificially suppressing throughput
+and misrepresenting the true campaign schedule.
 
 \subsection{Vehicle Availability and Lead-Time Cost}
 
@@ -201,19 +372,29 @@ nuclear certification, and export licensing:
   \label{eq:leadtime}
 \end{equation}
 
-\noindent Vehicles are classified by readiness status:
-\emph{Operational} vehicles (Falcon Heavy, SLS Block~2, Vulcan Centaur,
-Ariane~6, GSLV Mk~III, H3) have $\tau_v = 4$--26 periods
-(1--6 calendar months); \emph{Near-term} vehicles (Starship, New Glenn,
-Starship HLS) have $\tau_v = 13$--26 periods (3--6 months); and
-\emph{In-development} vehicles (KSLV-III) have
-$\tau_v = 78$ periods ($\sim$18 months).
+\noindent The constraint is enforced as a hard gate: the vehicle
+is simply not eligible for scheduling before $\tau_v$ periods
+have elapsed, regardless of demand.
+Vehicles are classified by readiness status:
+\emph{Operational} vehicles (Falcon Heavy, SLS Block~2,
+Vulcan Centaur, Ariane~6, GSLV Mk~III, H3) have
+$\tau_v = 4$--26 periods (1--6 calendar months), covering
+standard manifest integration and range safety reviews;
+\emph{Near-term} vehicles (Starship, New Glenn, Starship HLS)
+have $\tau_v = 13$--26 periods (3--6 months), reflecting ongoing
+production qualification and regulatory certification;
+and \emph{In-development} vehicles (KSLV-III) have
+$\tau_v = 78$ periods ($\approx 18$ months), encompassing full
+first-stage qualification, range approval, and export licensing.
+Lead times therefore impose a structural lower bound on campaign
+duration regardless of objective weights: no weight combination
+can schedule the first KSLV-III flight before month~18.
 
-Contracting, integration, and mission-assurance work
-incurred during the lead-time window constitutes a
-one-time overhead. This is modeled as a
-\emph{first-flight cost premium} $\delta_v \in [0,1]$
-applied only to the first launch of vehicle $v$:
+Contracting, integration, and mission-assurance work incurred
+during the lead-time window constitutes a one-time overhead.
+This is captured as a \emph{first-flight cost premium}
+$\delta_v \in [0,1]$ applied only to the first launch of
+vehicle $v$:
 
 \begin{equation}
   C_v^{(k)} =
@@ -224,18 +405,26 @@ applied only to the first launch of vehicle $v$:
   \label{eq:firstflight}
 \end{equation}
 
-\noindent where $c_v$ is the nominal per-launch cost and
-$k$ is the launch index for that vehicle. Premium values
-range from $\delta_v = 0.08$ (operational, established
-manifest) to $\delta_v = 0.40$ (in-development, full
-qualification amortized over one flight). The total
-program cost accumulated in Eq.~(\ref{eq:cost}) uses
-$C_v^{(k)}$ in place of $c_v$.
+\noindent Here $c_v$ is the nominal per-launch catalog cost;
+$k$ is the sequential launch index for vehicle $v$ across
+the entire campaign; and $\delta_v$ is the fractional overhead.
+Premium values range from $\delta_v = 0.08$ (8\%) for
+operational vehicles with established integration procedures
+(Falcon Heavy, Crew Dragon) to $\delta_v = 0.40$ (40\%) for
+vehicles requiring full first-stage qualification testing
+(KSLV-III), amortized over a single flight.
+The premium discourages introducing new vehicle types late
+in the campaign, where the one-time overhead cannot be amortized
+across multiple flights, and reflects the contracting risk
+associated with previously unused vehicle-launch-site combinations.
+The total program cost $C$ in Eq.~(\ref{eq:cost}) uses
+$C_v^{(k)}$ in place of $c_v$ for all flights.
 
 \subsection{Pad Turnaround Constraint}
 
 Each launch vehicle $v$ is subject to a minimum inter-launch
-interval to model launch pad refurbishment:
+interval to model launch pad refurbishment, range safety reset,
+and vehicle re-manifesting:
 
 \begin{equation}
   t - t_{\mathrm{last}}(v) \geq \Delta t_{\mathrm{pad}},
@@ -243,15 +432,25 @@ interval to model launch pad refurbishment:
   \mathcal{V}_{\mathrm{crew}}
 \end{equation}
 
-\noindent Default: $\Delta t_{\mathrm{pad}} = 2$ periods (14 days).
+\noindent where $t_{\mathrm{last}}(v)$ is the last period in which
+vehicle $v$ was launched.
+The default $\Delta t_{\mathrm{pad}} = 2$ periods (14~days) models
+a modern rapid-turnaround expendable vehicle; reusable vehicles
+with longer refurbishment cycles could be given higher values.
+This constraint prevents the optimizer from scheduling the same
+vehicle on back-to-back periods even when demand would otherwise
+justify it, forcing vehicle diversity when assembly throughput
+requirements are high and incentivizing the simultaneous use of
+multiple vehicle types.
 
 \subsection{Beam Search Pruning}
+\label{sec:beam}
 
 Exact DP over the assembled module bitmask is intractable for
 structures with $|\mathcal{M}_{\mathrm{total}}| \geq 20$
 ($2^{50}$ states for a 50-module spacecraft). Forward beam search
 retains only the top-$K$ states per epoch. States are ranked by a
-three-tier lexicographic key $\mathbf{k}(S)$:
+three-tier lexicographic sort key $\mathbf{k}(S)$:
 
 \begin{equation}
   \mathbf{k}(S) = \bigl(
@@ -262,9 +461,15 @@ three-tier lexicographic key $\mathbf{k}(S)$:
   \label{eq:beamsort}
 \end{equation}
 
-\noindent sorted in ascending order (lower is better).
+\noindent The key is evaluated left to right; lower values are
+better (the beam retains the $K$ states with the smallest keys).
+$|\mathcal{M}_{\mathrm{built}}|$ is the number of modules fully
+assembled in the current state; $\psi(S)$ is the blended secondary
+score (Eq.~\ref{eq:psi}); and $J(S)$ is the current accumulated
+weighted objective cost (Eq.~\ref{eq:cost}).
+
 The secondary score $\psi(S)$ blends pipeline depth with the
-weighted objective cost:
+accumulated objective cost:
 
 \begin{equation}
   \psi(S) =
@@ -279,10 +484,23 @@ weighted objective cost:
   \label{eq:psi}
 \end{equation}
 
-\noindent where a state is \emph{idle} if $\mathcal{Q} = \emptyset$
-(no cargo in transit), $\mathcal{D} = \mathcal{M}_{\mathrm{built}}$
-(no modules at site awaiting assembly), and no work-in-progress
-remains. The pipeline-depth heuristic $\phi(S)$ is:
+\noindent A state is \emph{idle} if it has no cargo in transit
+($\mathcal{Q} = \emptyset$), no modules at the site awaiting
+assembly ($\mathcal{D} = \mathcal{M}_{\mathrm{built}}$), no
+work-in-progress, and no crew vehicles docked
+($\mathcal{C}(t) = \emptyset$); idle states score zero to prevent
+the beam from filling with do-nothing trajectories when high cost
+or launch-count weights make inaction appear cheap.
+For active states, $\phi(S)$ measures pipeline depth
+(Eq.~\ref{eq:phi}); the activity bonus
+$2|\mathcal{M}_{\mathrm{total}}|$ guarantees $\psi \geq 1$ for
+every active state so active states always dominate idle ones;
+and the cost penalty $J(S) \cdot |\mathcal{M}_{\mathrm{total}}|$
+scales the accumulated objective value to the same numerical range
+as $\phi$, ensuring that high-cost trajectories are penalized in
+tier~2 and not merely deferred to tier~3.
+
+The pipeline-depth heuristic $\phi(S)$ is:
 
 \begin{equation}
   \phi(S) = 3\,|\mathcal{M}_{\mathrm{built}}|
@@ -292,40 +510,49 @@ remains. The pipeline-depth heuristic $\phi(S)$ is:
   \label{eq:phi}
 \end{equation}
 
-\noindent where $r_v$ is the periods remaining in crew vehicle $v$'s
-rotation and $J(S)$ is the current weighted cost (Eq.~\ref{eq:cost}).
+\noindent where $|\mathcal{D} \setminus \mathcal{M}_{\mathrm{built}}|$
+is the count of modules that have arrived at the assembly site but
+not yet been fully assembled; $|\mathcal{Q}|$ is the number of
+modules currently in transit; and $r_v$ is the number of rotation
+periods remaining for crew vehicle $v$.
+The integer weights 3, 2, 1 reflect decreasing certainty of
+contribution: assembled modules are permanent; site-delivered
+modules will be assembled within the next few periods if crew is
+present; and in-transit modules will arrive in a future period
+but may encounter WIP queuing delays before assembly can begin.
+Crew coverage $r_v$ rewards states in which a freshly launched
+vehicle will remain docked for many periods, distinguishing them
+from states with an expiring crew and imminent assembly stall.
 
 The three tiers serve distinct roles.
 The \emph{primary tier} ($-|\mathcal{M}_{\mathrm{built}}|$) is a
-hard completion guarantee: states that have assembled more modules
-are never discarded in favour of cheaper but idle states.
-The \emph{secondary tier} $\psi(S)$ has two responsibilities.
-First, the activity bonus $2|\mathcal{M}_{\mathrm{total}}|$ ensures
-that any state with active pipeline ($\psi \geq 1$) always outranks
-a completely idle state ($\psi = 0$), preventing the beam from
-filling with do-nothing trajectories when cost or launch-count
-weights are large.
-Second, subtracting $J(S)\cdot|\mathcal{M}_{\mathrm{total}}|$ means
-trajectories that accumulate high objective cost—for example, those
-that launch an expensive vehicle during a cheaper vehicle's pad
-turnaround cooldown—are penalized in tier~2, making the weight
-sliders effective even when the pad constraint forces an immediate
+hard convergence guarantee: states that have assembled more modules
+are never discarded in favour of cheaper but idle states,
+ensuring the beam always makes forward progress toward campaign
+completion.
+The \emph{secondary tier} $\psi(S)$ has two responsibilities:
+the activity bonus prevents the beam from filling with do-nothing
+trajectories, and the cost penalty makes objective weights
+effective even when pad-turnaround constraints force a near-term
 scheduling choice between a cheap vehicle on cooldown and an
 expensive vehicle that is currently eligible.
-The \emph{tertiary tier} $J(S)$ resolves any remaining ties by pure
-objective value. Default beam width: $K = 100$.
+The \emph{tertiary tier} $J(S)$ resolves any remaining ties by
+pure objective value, allowing the cost or launch-count sliders
+to discriminate between otherwise equal schedules.
+Default beam width: $K = 100$.
 
 \paragraph{Weight sensitivity in practice.}
-Weights produce visibly different solutions when the optimizer faces
-genuine choices: multiple cargo vehicles with different costs or
-lead times, or a spacecraft large enough to require several launches.
+Weights produce visibly different solutions when the optimizer
+faces genuine choices: multiple cargo vehicles with different
+costs or lead times, or a spacecraft large enough to require
+several launches.
 With a single cargo vehicle selected, all weight combinations
-converge to the same campaign architecture because the vehicle mix
-cannot change---only launch timing varies.
+converge to the same campaign architecture because the vehicle
+mix cannot change---only launch timing varies.
 The greedy beam structure also limits temporal trade-offs: a
 trajectory that sacrifices early progress to wait for a cheaper
-vehicle with a long lead time is penalized in tier~1 relative to a
-trajectory that launches the immediately available vehicle; a
+vehicle with a long lead time is penalized in tier~1 relative to
+a trajectory that launches the immediately available vehicle; a
 Pareto/NSGA-II search would preserve such trade-offs but is
 computationally impractical for the state sizes considered here.
 To explore cost-versus-time trade-offs, select at least two cargo

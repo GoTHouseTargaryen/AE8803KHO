@@ -39,9 +39,8 @@ class CargoVehicle:
             # GSLV Mk III / LVM3: ISRO commercial list ~$35–50M
             CargoVehicle("GSLV Mk III",    "India",       10000,  50,   50,   False, "Operational",    lead_time_periods=13, first_flight_cost_premium=0.10),
             # Near-term: 3-6 month production/qualification lead, 20% premium
-            # Starship: realistic near-term commercial price ~$200M/flight (2025 analyst consensus);
-            # aspirational long-run target is much lower but not yet achieved at scale
-            CargoVehicle("Starship",       "USA",         150000, 1000, 200,  True,  "Near-term",      lead_time_periods=18, first_flight_cost_premium=0.20),
+            # Starship: SpaceX commercial target ~$100M for early operational flights
+            CargoVehicle("Starship",       "USA",         150000, 1000, 100,  True,  "Near-term",      lead_time_periods=18, first_flight_cost_premium=0.20),
             # New Glenn: Blue Origin commercial list ~$90M for early flights
             CargoVehicle("New Glenn",      "USA",         45000,  160,  90,   False, "Near-term",      lead_time_periods=13, first_flight_cost_premium=0.20),
             # In development: 18-month qualification + certification, 40% premium

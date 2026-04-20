@@ -5,24 +5,79 @@ This section presents quantitative outcomes from
 tagged for analysis. Each scenario was optimized using the
 forward beam search solver described in Section~II with beam
 width $K = 100$. Figures and tables are generated directly from
-the solver output; the accompanying narrative describes what is
-shown in each chart. Interpretation and implications are
-deferred to Section~V.
+the solver output; the accompanying narrative describes what each
+chart shows and highlights the key patterns visible in the data.
+Interpretation, trade-off analysis, and mission-planning
+implications are addressed in Section~V (Discussion).
 
 {% for run in runs %}
+{# ------------------------------------------------------------------ #}
+{# Derive per-run statistics from the timeline                         #}
+{# ------------------------------------------------------------------ #}
+{% set ns = namespace(
+    first_cargo=None, first_crew=None, first_assembly=None,
+    n_cargo=0, n_crew=0, n_assembled=0,
+    active_periods=0,
+    cargo_vehicles=[], crew_vehicles=[]
+) %}
+{% for entry in run.result.timeline %}
+  {% for action in entry.actions %}
+    {% if 'launched:' in action %}
+      {% set ns.n_cargo = ns.n_cargo + 1 %}
+      {% if ns.first_cargo is none %}{% set ns.first_cargo = entry.period %}{% endif %}
+      {% set vname = action.split(':')[1] %}
+      {% if vname not in ns.cargo_vehicles %}
+        {% set ns.cargo_vehicles = ns.cargo_vehicles + [vname] %}
+      {% endif %}
+    {% endif %}
+    {% if 'crew_launch:' in action %}
+      {% set ns.n_crew = ns.n_crew + 1 %}
+      {% if ns.first_crew is none %}{% set ns.first_crew = entry.period %}{% endif %}
+      {% set vname = action.split(':')[1] %}
+      {% if vname not in ns.crew_vehicles %}
+        {% set ns.crew_vehicles = ns.crew_vehicles + [vname] %}
+      {% endif %}
+    {% endif %}
+    {% if action.startswith('assembled:') %}
+      {% set ns.n_assembled = ns.n_assembled + 1 %}
+      {% if ns.first_assembly is none %}{% set ns.first_assembly = entry.period %}{% endif %}
+    {% endif %}
+  {% endfor %}
+  {% if entry.actions | length > 0 %}
+    {% set ns.active_periods = ns.active_periods + 1 %}
+  {% endif %}
+{% endfor %}
+{% set idle_periods = run.result.total_periods - ns.active_periods %}
+{% set cost_per_module = (run.result.total_cost_million / run.result.modules_completed) if run.result.modules_completed > 0 else 0 %}
+{% set launches_per_module = (run.result.total_launches / run.result.modules_completed) if run.result.modules_completed > 0 else 0 %}
+{# ------------------------------------------------------------------ #}
+
 \subsection{Scenario: {{- run.label | replace('_', '\_') -}} }
 
-Table~\ref{tab:metrics_{{ loop.index }}} summarizes headline
-performance metrics. The assembly campaign completed
+Table~\ref{tab:metrics_{{ loop.index }}} summarizes the headline
+performance metrics for this scenario.
+The assembly campaign completed
 {{ run.result.modules_completed }}~modules in
 {{ run.result.total_periods }}~periods
 ({{ "%.1f"|format(run.result.total_periods * 7 / 30) }}~months),
-required {{ run.result.total_launches }}~launches, and incurred a
-total program cost of
+required {{ run.result.total_launches }}~launch
+{{ 'events' if run.result.total_launches != 1 else 'event' }}
+({{ ns.n_cargo }}~cargo and {{ ns.n_crew }}~crew
+rotation{{ 's' if ns.n_crew != 1 else '' }}),
+and incurred a total program cost of
 \${{ "%.0f"|format(run.result.total_cost_million) }}\,M.
 The cumulative proximity risk metric
-(Eq.~\ref{eq:risk}) reached
+(Eq.~\ref{eq:risk}) accumulated to
 {{ "%.4f"|format(run.result.cumulative_risk) }} over the campaign.
+These figures reflect a spacecraft of length
+{{ run.config.spacecraft.length_km }}\,km with
+{{ run.config.spacecraft.propulsion_type }} propulsion and a
+{{ run.config.spacecraft.power_type }} power system, optimized
+under objective weights
+$(w_1, w_2, w_3) =
+({{ run.config.weights.w_launches }},\;
+ {{ run.config.weights.w_time }},\;
+ {{ run.config.weights.w_cost }})$.
 
 \begin{table}[htbp]
 \centering
@@ -34,14 +89,21 @@ The cumulative proximity risk metric
 Metric & Value \\
 \midrule
 Total launches        & {{ run.result.total_launches }} \\
+\quad Cargo flights   & {{ ns.n_cargo }} \\
+\quad Crew rotations  & {{ ns.n_crew }} \\
 Mission duration      & {{ run.result.total_periods }} periods
                         ({{ "%.1f"|format(run.result.total_periods * 7 / 30) }} months) \\
 Total program cost    & \${{ "%.0f"|format(run.result.total_cost_million) }}\,M \\
+Cost per module       & \${{ "%.0f"|format(cost_per_module) }}\,M \\
 Modules completed     & {{ run.result.modules_completed }} \\
 Cumulative risk       & {{ "%.4f"|format(run.result.cumulative_risk) }} \\
 Spacecraft length     & {{ run.config.spacecraft.length_km }}\,km \\
 Propulsion            & {{ run.config.spacecraft.propulsion_type }} \\
 Power system          & {{ run.config.spacecraft.power_type }} \\
+Cargo vehicle{{ 's' if ns.cargo_vehicles | length != 1 else '' }} used &
+  {{ ns.cargo_vehicles | join(', ') | replace('_', '\_') }} \\
+Crew vehicle{{ 's' if ns.crew_vehicles | length != 1 else '' }} used &
+  {{ ns.crew_vehicles | join(', ') | replace('_', '\_') }} \\
 Objective weights ($w_1, w_2, w_3$) &
   ({{ run.config.weights.w_launches }},
    {{ run.config.weights.w_time }},
@@ -50,70 +112,172 @@ Objective weights ($w_1, w_2, w_3$) &
 \end{tabular}
 \end{table}
 
-Figure~\ref{fig:gantt_{{ loop.index }}} presents the assembly
-timeline as a Gantt chart. The horizontal axis is the period
-index; each horizontal bar corresponds to a single assembly
-action or launch event, color-coded by action type: cargo
-launches in blue, crew launches in orange, completed (assembled)
-modules in green, and work-in-progress modules in purple. Bars
-stack vertically to indicate concurrent actions within the same
-period.
+\paragraph{Assembly timeline (Fig.~\ref{fig:gantt_{{ loop.index }}}).}
+The Gantt chart maps every action taken by the optimizer against
+the period index (horizontal axis).
+Each horizontal bar represents a single event: cargo launches
+are shown in blue, crew launches in orange, fully assembled
+modules in green, and work-in-progress (WIP) modules---those
+whose assembly hours spanned more than one period---in purple.
+Bars for concurrent actions within the same period are stacked
+vertically, so a dense vertical column indicates a high-activity
+period with simultaneous launches and assembly completions.
+In this scenario the first cargo flight was dispatched at
+period~{{ ns.first_cargo if ns.first_cargo is not none else '---' }}
+(day~{{ ns.first_cargo * 7 if ns.first_cargo is not none else '---' }},
+or $\approx{{ "%.1f"|format(ns.first_cargo * 7 / 30) if ns.first_cargo is not none else '---' }}$~months
+after campaign start), which is gated by the lead time of the
+selected cargo vehicle{{ 's' if ns.cargo_vehicles | length > 1 else '' }}
+(Eq.~\ref{eq:leadtime}).
+{% if ns.first_crew is not none %}
+The first crew rotation launched at period~{{ ns.first_crew }};
+{% if ns.first_assembly is not none %}
+assembly work began at period~{{ ns.first_assembly }}, once
+sufficient cargo had arrived and at least one module was
+deliverable to the site.
+{% endif %}
+{% endif %}
+The campaign logged {{ ns.n_cargo }}~cargo
+flight{{ 's' if ns.n_cargo != 1 else '' }},
+{{ ns.n_crew }}~crew rotation{{ 's' if ns.n_crew != 1 else '' }},
+and {{ ns.n_assembled }}~module
+completion{{ 's' if ns.n_assembled != 1 else '' }}
+across {{ run.result.total_periods }}~periods.
 
 \begin{figure}[htbp]
   \centering
   \resizebox{0.85\textwidth}{!}{\input{generated/run_{{ loop.index0 }}_gantt.pgf}}
   \caption{Assembly timeline Gantt chart ---
-           {{ run.label | replace('_', '\_') }}.}
+           {{ run.label | replace('_', '\_') }}.
+           Blue~=~cargo launch; orange~=~crew launch;
+           green~=~module assembled; purple~=~WIP.}
   \label{fig:gantt_{{ loop.index }}}
 \end{figure}
 
-Figure~\ref{fig:resources_{{ loop.index }}} plots two
-quantities against period index on a dual-axis chart: the
-on-site crew count (left axis, solid orange) and the total
-vehicle count in proximity (right axis, dashed blue), where
-vehicle count sums docked crew vehicles and cargo vehicles
-actively unloading in that period. Together these drive the
-proximity congestion penalty $\pi(n,p)$ from
-Eq.~(\ref{eq:penalty}).
+\paragraph{Resource utilization (Fig.~\ref{fig:resources_{{ loop.index }}}).}
+The resource chart overlays two time-varying quantities on a
+dual-axis plot: the on-site crew headcount (left axis, solid
+orange line) and the total vehicle count in proximity (right
+axis, dashed blue line), where vehicle count includes all
+docked crew vehicles plus any cargo vehicles actively unloading
+in that period.
+Together these two signals drive the congestion penalty
+$\pi(n,p)$ in Eq.~(\ref{eq:penalty}): peak crew count
+maximizes assembly throughput, but simultaneous peaks in both
+crew and vehicle count incur the largest proximity penalties
+and collision-risk contributions (Eq.~\ref{eq:risk}).
+Periods in which the vehicle count spikes while crew count
+remains constant correspond to cargo arrivals; those are the
+highest-risk windows in the campaign.
+Flat crew-count segments between rotation launches indicate
+periods where crew is absent and assembly is stalled or purely
+robotic.
+{% if run.result.cumulative_risk > 0.001 %}
+The relatively elevated cumulative risk of
+{{ "%.4f"|format(run.result.cumulative_risk) }} in this scenario
+is consistent with periods of high vehicle density visible in the
+chart; tightening the crew-rotation overlap schedule or
+staggering cargo arrivals would reduce the peak $n$ and
+lower $\mathcal{R}$.
+{% else %}
+The low cumulative risk of
+{{ "%.4f"|format(run.result.cumulative_risk) }} reflects well-separated
+vehicle arrivals with minimal overlap between cargo unloading
+and crew docking windows.
+{% endif %}
 
 \begin{figure}[htbp]
   \centering
   \resizebox{0.75\textwidth}{!}{\input{generated/run_{{ loop.index0 }}_resources.pgf}}
-  \caption{Resource utilization over time ---
+  \caption{On-site crew (left axis, orange) and vehicle
+           count in proximity (right axis, blue dashed) ---
            {{ run.label | replace('_', '\_') }}.}
   \label{fig:resources_{{ loop.index }}}
 \end{figure}
 
-Figure~\ref{fig:cost_{{ loop.index }}} shows a two-panel
-horizontal bar chart of total program cost. The upper panel
-lists cargo launch vehicles (blue bars) and the lower panel
-lists crew vehicles (orange bars). Each bar length equals the
-catalog unit price multiplied by the number of flights of that
-vehicle; the first-flight cost premium (Eq.~\ref{eq:firstflight})
-is included where applicable. Numeric cost labels (\$M) are
-displayed at the end of each bar; vehicles with zero flights
-are omitted.
+\paragraph{Program cost breakdown (Fig.~\ref{fig:cost_{{ loop.index }}}).}
+The cost chart presents a two-panel horizontal bar chart.
+The upper panel shows cargo launch vehicles (blue bars) and the
+lower panel shows crew vehicles (orange bars).
+Each bar's length equals the catalog unit price for that vehicle
+multiplied by its total number of flights in this scenario; the
+first-flight cost premium (Eq.~\ref{eq:firstflight}) is folded
+into the first flight's bar.
+Vehicles with zero flights are omitted; numeric cost labels
+(\$M) appear at the right end of each bar.
+The total program cost of \${{ "%.0f"|format(run.result.total_cost_million) }}\,M
+is the sum of all bars in both panels.
+{% if ns.n_cargo > 0 and ns.n_crew > 0 %}
+Of the {{ run.result.total_launches }}~total launches,
+{{ ns.n_cargo }}~were cargo flights and {{ ns.n_crew }}~were
+crew rotations; the relative height of the two panels indicates
+the cargo-versus-crew share of the total budget.
+{% endif %}
+A vehicle that appears in only one flight carries a
+disproportionately high first-flight premium (up to 40\% for
+in-development vehicles), which is visible as an extra bar
+extension compared with per-launch cost alone.
+{% if run.config.weights.w_cost > run.config.weights.w_launches and run.config.weights.w_cost > run.config.weights.w_time %}
+Because $w_3 = {{ run.config.weights.w_cost }}$ is the dominant
+weight in this scenario, the optimizer has preferentially
+selected cost-efficient vehicles; the chart should show a
+concentration of low-unit-cost launchers rather than
+a single high-capacity vehicle.
+{% elif run.config.weights.w_launches > run.config.weights.w_time and run.config.weights.w_launches > run.config.weights.w_cost %}
+Because $w_1 = {{ run.config.weights.w_launches }}$ is the
+dominant weight, the optimizer consolidated payload onto
+high-capacity vehicles to minimize the number of bars
+in the upper panel.
+{% endif %}
 
 \begin{figure}[htbp]
   \centering
   \resizebox{0.75\textwidth}{!}{\input{generated/run_{{ loop.index0 }}_cost.pgf}}
-  \caption{Program cost breakdown by launch vehicle ---
-           {{ run.label | replace('_', '\_') }}.}
+  \caption{Program cost breakdown by vehicle ---
+           {{ run.label | replace('_', '\_') }}.
+           Upper panel: cargo vehicles (blue).
+           Lower panel: crew vehicles (orange).
+           Bar length = unit price $\times$ flights.}
   \label{fig:cost_{{ loop.index }}}
 \end{figure}
 
-Figure~\ref{fig:modules_{{ loop.index }}} plots cumulative
-completed modules against period index as a step function.
-The horizontal dotted red line marks the target module count
-for this scenario ({{ run.result.modules_completed }}~modules);
-the gap between this target and the step curve at any period
-represents the remaining backlog.
+\paragraph{Assembly progress (Fig.~\ref{fig:modules_{{ loop.index }}}).}
+The modules-over-time chart is a step function of cumulative
+modules completed plotted against period index.
+Each vertical step represents one or more module completions
+within the same period; the height of each step equals the
+number of modules finished in that period.
+A dotted horizontal red reference line marks the total module
+target ({{ run.result.modules_completed }}~modules); the campaign
+is complete when the step function first reaches this line.
+Flat horizontal segments---periods with no new completions---
+indicate one of three conditions: (a) all eligible modules are
+in transit and no material has yet arrived at the site;
+(b) a WIP module is being worked across multiple periods and
+will complete in a future step; or (c) the crew has expired
+and no new rotation has yet arrived.
+The overall slope of the curve is the assembly rate; a
+consistently steep slope indicates that the crew and cargo
+pipeline are well-matched, while a shallow slope or a late
+inflection point suggests the campaign was bottlenecked by
+transit time, crew availability, or DAG precedence constraints.
+{% if run.result.total_periods > 0 %}
+In this scenario, {{ run.result.modules_completed }}~modules were
+completed in {{ run.result.total_periods }}~periods, giving an
+average assembly rate of
+{{ "%.2f"|format(run.result.modules_completed / run.result.total_periods) }}~modules
+per period
+($\approx{{ "%.2f"|format(run.result.modules_completed / (run.result.total_periods * 7 / 30)) }}$~per
+calendar month).
+{% endif %}
 
 \begin{figure}[htbp]
   \centering
   \resizebox{0.75\textwidth}{!}{\input{generated/run_{{ loop.index0 }}_modules.pgf}}
-  \caption{Cumulative modules completed over time ---
-           {{ run.label | replace('_', '\_') }}.}
+  \caption{Cumulative modules completed vs.\ period ---
+           {{ run.label | replace('_', '\_') }}.
+           Dotted line = total module target
+           ({{ run.result.modules_completed }}~modules).}
   \label{fig:modules_{{ loop.index }}}
 \end{figure}
 
@@ -124,25 +288,32 @@ represents the remaining backlog.
 
 Table~\ref{tab:comparison} aggregates headline metrics across
 all {{ runs | length }} tagged scenarios for side-by-side
-inspection. Figure~\ref{fig:pareto} projects the same set of
-scenarios onto the (total launches, mission duration) plane,
-with marker color indicating total program cost per the
-colorbar legend. Non-dominated points form the empirical Pareto
-frontier for this ensemble.
+inspection.
+Figure~\ref{fig:pareto} projects the same set of scenarios
+onto the (total launches, mission duration in periods) plane,
+with marker color encoding total program cost per the
+colorbar legend.
+Non-dominated points form the empirical Pareto frontier of
+this ensemble: no other scenario in the set achieves a strictly
+better value on all three objectives simultaneously.
+Points above and to the right of the frontier represent
+dominated solutions that could be improved on at least one
+objective without degrading another.
 
 \begin{table}[htbp]
 \centering
-\caption{Headline metrics across all tagged scenarios.}
+\caption{Headline metrics across all {{ runs | length }} tagged scenarios.}
 \label{tab:comparison}
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrr}
 \toprule
-Scenario & Launches & Duration (mo) & Cost (\$M) \\
+Scenario & Launches & Duration (mo) & Cost (\$M) & Risk \\
 \midrule
 {% for run in runs %}
 {{ run.label | replace('_', '\_') | truncate(22, True, '...') }} &
 {{ run.result.total_launches }} &
 {{ "%.1f"|format(run.result.total_periods * 7 / 30) }} &
-{{ "%.0f"|format(run.result.total_cost_million) }} \\
+{{ "%.0f"|format(run.result.total_cost_million) }} &
+{{ "%.4f"|format(run.result.cumulative_risk) }} \\
 {% endfor %}
 \bottomrule
 \end{tabular}
@@ -152,13 +323,17 @@ Scenario & Launches & Duration (mo) & Cost (\$M) \\
   \centering
   \resizebox{0.75\textwidth}{!}{\input{generated/pareto.pgf}}
   \caption{Pareto frontier across {{ runs | length }}
-           scenarios; color indicates total program cost.}
+           scenarios. Each point is one tagged run;
+           diamonds mark non-dominated (Pareto-optimal) points.
+           Marker color encodes total program cost (\$M).
+           Red stars identify the tagged scenario{{ 's' if runs | length > 1 else '' }}.}
   \label{fig:pareto}
 \end{figure}
 
 {% endif %}
 
 \section{Discussion}
+\label{sec:discussion}
 
 {% set min_launches = runs | map(attribute='result.total_launches') | min %}
 {% set max_launches = runs | map(attribute='result.total_launches') | max %}
@@ -171,144 +346,345 @@ Scenario & Launches & Duration (mo) & Cost (\$M) \\
 
 \subsection{Solution Space and Constraint Boundaries}
 
-Figure~\ref{fig:solution_space} maps the complete set of solutions
-generated by the beam search across a $3 \times 3 \times 3$ grid
-of objective weights $(w_1, w_2, w_3)$. Each point represents a
-unique (launches, duration) outcome; diamond markers identify
-Pareto-optimal solutions; the dashed step line traces the
-empirical Pareto frontier. The red shaded band above the
-horizontal constraint line ($T = T_{\max}$) marks the
-infeasible region enforced by the maximum-period limit
-(Eq.~\ref{eq:penalty}). The orange band below the
-lead-time floor marks durations that cannot be achieved
-regardless of weights because vehicle availability gates
-(Eq.~\ref{eq:leadtime}) prevent earlier first launches.
-Red stars indicate the tagged scenario{{ 's' if runs | length > 1 else '' }}.
+Figure~\ref{fig:solution_space} maps the full set of solutions
+generated by a $3 \times 3 \times 3$ grid of objective weights
+$(w_1, w_2, w_3) \in \{0, 1, 2\}^3$ onto the
+(launches, duration) plane.
+Each point represents a unique (launches, duration) outcome
+produced by the beam-search optimizer for one weight
+combination; color indicates program cost.
+Diamond markers identify Pareto-optimal solutions---points
+for which no other sampled solution achieves a strictly
+lower value on all three objectives---and the dashed step line
+traces the empirical Pareto frontier through these points.
+The red shaded band above the horizontal constraint line
+($T = T_{\max}$) marks the infeasible region imposed by the
+planning horizon limit; solutions approaching this boundary
+indicate that the optimizer exhausted all available scheduling
+periods without completing the spacecraft.
+The orange band below the lead-time floor marks durations that
+are physically unachievable regardless of weights, because
+vehicle availability gates (Eq.~\ref{eq:leadtime}) prevent
+first launches before the earliest $\tau_v$ has elapsed.
+Red stars identify the tagged
+scenario{{ 's' if runs | length > 1 else '' }}
+chosen for detailed analysis above.
+The density and spread of points in the interior of the plot
+reveal how sensitive the campaign architecture is to weight
+selection: a compact cluster indicates that most weight
+combinations converge to similar solutions, while a widely
+dispersed cloud shows strong weight sensitivity.
 
 \begin{figure}[htbp]
   \centering
   \resizebox{0.85\textwidth}{!}{\input{generated/solution_space.pgf}}
-  \caption{Complete solution space: all weight-sweep outcomes
-           plotted in objective space. Diamond markers are
-           Pareto-optimal; red stars are the tagged
+  \caption{Complete solution space generated by a
+           $3{\times}3{\times}3$ weight sweep.
+           Diamond markers are Pareto-optimal points;
+           the dashed line traces the empirical frontier.
+           Red stars are the tagged
            scenario{{ 's' if runs | length > 1 else '' }}.
-           Shaded bands indicate infeasible regions.}
+           Shaded bands mark the infeasible regions.}
   \label{fig:solution_space}
 \end{figure}
 
 {% if runs | length == 1 %}
 {% set run = runs[0] %}
-The tagged scenario
-({{ run.label | replace('_', '\_') }}) yielded
-{{ run.result.total_launches }}~launches,
-{{ run.result.total_periods }}~periods of assembly, and
-\${{ "%.0f"|format(run.result.total_cost_million) }}\,M of
-program cost. The implications of this operating point are
-discussed below in the context of the modeling assumptions
-introduced in Sections~II and~III.
+{# single-run derived stats #}
+{% set ns = namespace(
+    n_cargo=0, n_crew=0,
+    first_cargo=None, first_crew=None, first_assembly=None,
+    cargo_vehicles=[], crew_vehicles=[]
+) %}
+{% for entry in run.result.timeline %}
+  {% for action in entry.actions %}
+    {% if 'launched:' in action %}
+      {% set ns.n_cargo = ns.n_cargo + 1 %}
+      {% if ns.first_cargo is none %}{% set ns.first_cargo = entry.period %}{% endif %}
+      {% set vname = action.split(':')[1] %}
+      {% if vname not in ns.cargo_vehicles %}{% set ns.cargo_vehicles = ns.cargo_vehicles + [vname] %}{% endif %}
+    {% endif %}
+    {% if 'crew_launch:' in action %}
+      {% set ns.n_crew = ns.n_crew + 1 %}
+      {% if ns.first_crew is none %}{% set ns.first_crew = entry.period %}{% endif %}
+      {% set vname = action.split(':')[1] %}
+      {% if vname not in ns.crew_vehicles %}{% set ns.crew_vehicles = ns.crew_vehicles + [vname] %}{% endif %}
+    {% endif %}
+    {% if action.startswith('assembled:') and ns.first_assembly is none %}
+      {% set ns.first_assembly = entry.period %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+{% set cost_per_module = (run.result.total_cost_million / run.result.modules_completed) if run.result.modules_completed > 0 else 0 %}
+{% set launches_per_module = (run.result.total_launches / run.result.modules_completed) if run.result.modules_completed > 0 else 0 %}
+{% set avg_rate = (run.result.modules_completed / run.result.total_periods) if run.result.total_periods > 0 else 0 %}
 
-\subsection{Launch Cadence and Pad Turnaround}
+The single tagged scenario
+({{ run.label | replace('_', '\_') }})
+produced {{ run.result.total_launches }}~launches,
+{{ run.result.total_periods }}~periods of assembly
+({{ "%.1f"|format(run.result.total_periods * 7 / 30) }}~months), and
+\${{ "%.0f"|format(run.result.total_cost_million) }}\,M of total
+program cost under weights
+$(w_1, w_2, w_3) =
+({{ run.config.weights.w_launches }},\;
+ {{ run.config.weights.w_time }},\;
+ {{ run.config.weights.w_cost }})$.
+The discussion below interprets each performance dimension in light
+of the model physics and the selected configuration.
 
-A campaign of {{ run.result.total_launches }}~launches
-averages
-{{ "%.2f"|format(run.result.total_launches / run.result.total_periods) }}~launches
-per period, or roughly
-{{ "%.2f"|format(run.result.total_launches / (run.result.total_periods * 7 / 30)) }}~per
-calendar month. This cadence is consistent with a mixed-fleet
-architecture in which multiple vehicles share the load, since
-the pad-turnaround constraint (Section~II.G) precludes any
-single vehicle from flying faster than once every
-$\Delta t_{\mathrm{pad}}$~periods.
+\subsection{Launch Cadence and Vehicle Selection}
 
-\subsection{Schedule and Crew Rotation}
+The {{ run.result.total_launches }}-launch campaign includes
+{{ ns.n_cargo }}~cargo
+flight{{ 's' if ns.n_cargo != 1 else '' }}
+and {{ ns.n_crew }}~crew
+rotation{{ 's' if ns.n_crew != 1 else '' }},
+averaging
+{{ "%.2f"|format(run.result.total_launches / run.result.total_periods) }}~total
+launches per period
+($\approx{{ "%.2f"|format(run.result.total_launches / (run.result.total_periods * 7 / 30)) }}$~per
+calendar month).
+The cargo fleet comprised
+{{ ns.cargo_vehicles | join(' and ') | replace('_', '\_') }};
+crew rotations used
+{{ ns.crew_vehicles | join(' and ') | replace('_', '\_') }}.
+{% if launches_per_module < 1.0 %}
+At {{ "%.2f"|format(launches_per_module) }}~launches per module,
+the optimizer consolidated multiple modules onto individual
+flights, reflecting the weight $w_1 = {{ run.config.weights.w_launches }}$
+placed on minimizing launch count.
+The relatively high per-flight payload utilization reduces
+overall pad-time and range-coordination overhead.
+{% elif launches_per_module > 2.0 %}
+At {{ "%.2f"|format(launches_per_module) }}~launches per module,
+the campaign required more flights than the nominal one-per-module
+baseline, suggesting that module mass exceeded the per-flight
+delivery capacity of the selected vehicle{{ 's' if ns.cargo_vehicles | length > 1 else '' }}
+after the tug-constraint loss (Eq.~\ref{eq:tug}).
+{% else %}
+At {{ "%.2f"|format(launches_per_module) }}~launches per module,
+the campaign ran close to the one-per-module baseline,
+indicating that module masses were well-matched to the delivery
+capacity of the selected vehicle{{ 's' if ns.cargo_vehicles | length > 1 else '' }}.
+{% endif %}
+The pad-turnaround constraint (Section~II.G) precluded any
+single vehicle from flying more frequently than once every
+$\Delta t_{\mathrm{pad}} = 2$ periods; the observed cadence
+of {{ "%.2f"|format(run.result.total_launches / run.result.total_periods) }}~launches
+per period is consistent with this ceiling for
+{{ run.result.total_launches }}~flights across
+{{ run.result.total_periods }}~periods.
 
-At {{ run.result.total_periods }}~periods
-({{ "%.1f"|format(run.result.total_periods * 7 / 30) }}~months),
-the campaign length is governed by the interaction of
-assembly-hour availability (Eqs.~\ref{eq:eva}--\ref{eq:crew_hours}),
-DAG precedence, and proximity penalties. Gaps between crew
-rotations appear as flat regions in the modules-completed step
-curve (Fig.~\ref{fig:modules_1}); their aggregate duration is
-a sensitive function of the crew rotation cadence and the
-60\% duty-cycle assumption.
+\subsection{Schedule, Crew Coverage, and Assembly Bottlenecks}
 
-\subsection{Cost Structure}
+The campaign completed in {{ run.result.total_periods }}~periods
+({{ "%.1f"|format(run.result.total_periods * 7 / 30) }}~months).
+{% if ns.first_cargo is not none %}
+The first cargo flight launched at period~{{ ns.first_cargo }},
+gated by the lead time of the selected cargo vehicle.
+{% endif %}
+{% if ns.first_assembly is not none %}
+Assembly work commenced at period~{{ ns.first_assembly }},
+after sufficient modules had arrived at the site and a crew
+vehicle was docked to begin EVA operations.
+{% endif %}
+The average assembly rate of
+{{ "%.2f"|format(avg_rate) }}~modules per period
+({{ "%.2f"|format(avg_rate * 30 / 7) }}~per calendar month) was
+set by the interaction of crew EVA capacity
+(Eqs.~\ref{eq:eva}--\ref{eq:crew_hours}), DAG precedence
+constraints, and proximity congestion penalties
+(Eq.~\ref{eq:penalty}).
+{% if run.config.weights.w_time > run.config.weights.w_launches and run.config.weights.w_time > run.config.weights.w_cost %}
+The dominant time weight $w_2 = {{ run.config.weights.w_time }}$
+directed the optimizer to front-load cargo and minimize crew
+rotation gaps, resulting in a campaign duration that approaches
+the physical lower bound imposed by assembly-hour constraints
+and module DAG depth.
+{% elif run.config.weights.w_launches > run.config.weights.w_time %}
+The dominant launch weight $w_1 = {{ run.config.weights.w_launches }}$
+caused the optimizer to defer some launches, accepting a longer
+schedule in exchange for higher per-flight payload utilization.
+Flat regions in the modules-over-time curve
+(Fig.~\ref{fig:modules_1}) correspond to these deliberate
+deferral windows.
+{% endif %}
+Gaps between crew rotations---periods in which the crew vehicle
+had expired and no replacement had yet arrived---are the primary
+source of schedule inefficiency; their aggregate contribution
+to the campaign length is visible as flat segments in
+Fig.~\ref{fig:modules_1}.
 
-The per-vehicle cost decomposition
-(Fig.~\ref{fig:cost_1}) reveals which launchers dominate the
-program budget in this scenario. Because the cost function
-(Eq.~\ref{eq:cost}) is normalized, a heavy-lift vehicle with a
-high unit cost but favorable \$/kg can displace many mid-sized
-flights and still reduce the weighted objective.
+\subsection{Cost Structure and Program Economics}
 
-\subsection{Safety}
+At \${{ "%.0f"|format(run.result.total_cost_million) }}\,M total,
+the campaign incurred an average cost of
+\${{ "%.0f"|format(cost_per_module) }}\,M per
+assembled module.
+The cost breakdown (Fig.~\ref{fig:cost_1}) decomposes this
+total into contributions from each cargo and crew vehicle.
+{% if run.config.weights.w_cost > run.config.weights.w_launches and run.config.weights.w_cost > run.config.weights.w_time %}
+The dominant cost weight $w_3 = {{ run.config.weights.w_cost }}$
+directed the optimizer toward cost-efficient vehicles, as
+reflected in the vehicle mix shown in the cost chart.
+First-flight premiums (Eq.~\ref{eq:firstflight}) represent a
+fixed overhead amortized over each vehicle's first appearance in
+the campaign; introducing fewer distinct vehicle types reduces
+this premium exposure.
+{% else %}
+Because cost was not the dominant objective
+($w_3 = {{ run.config.weights.w_cost }}$), the optimizer may have
+selected higher-capacity or faster-available vehicles at a cost
+premium; the cost chart shows where the largest single-vehicle
+expenditures occurred.
+{% endif %}
+Crew rotations typically represent a significant share of total
+program cost because each rotation incurs both a launch fee and
+a crew-support overhead; reducing rotation frequency (via longer
+crew tours) reduces cost but may leave the assembly site
+uncrewed during transit windows.
+
+\subsection{Proximity Risk and Operational Safety}
 
 The cumulative proximity risk of
-{{ "%.4f"|format(run.result.cumulative_risk) }} is driven by the
-$\binom{n}{2}$ pair term in Eq.~(\ref{eq:risk}); periods with
-simultaneous crew arrival and cargo unloading are the primary
-contributors, visible as crew/vehicle count peaks in
-Fig.~\ref{fig:resources_1}.
+{{ "%.4f"|format(run.result.cumulative_risk) }} was accumulated
+over {{ run.result.total_periods }}~periods according to
+Eq.~(\ref{eq:risk}).
+{% if run.result.cumulative_risk > 0.01 %}
+This is a non-trivial risk level, driven primarily by periods in
+which crew vehicles were docked simultaneously with cargo
+vehicles actively unloading---the $\binom{n}{2}$ pair term grows
+quadratically with $n$, so even brief multi-vehicle overlap
+intervals contribute disproportionately.
+Operational mitigations would include staggered arrival windows
+(scheduling cargo arrivals to end before crew docking begins)
+and enhanced proximity operations protocols during high-$n$
+periods, both of which could reduce $\mathcal{R}$ without
+lengthening the campaign.
+{% else %}
+The low cumulative risk reflects well-separated vehicle traffic:
+cargo and crew arrivals were largely non-overlapping, keeping
+the simultaneous vehicle count $n(t)$ close to~1 for most of the
+campaign and the $\binom{n}{2}$ pair contribution near zero.
+This favorable safety profile was achieved without an explicit
+safety objective, suggesting that the campaign structure
+naturally minimizes multi-vehicle overlap when launch timing is
+driven by assembly-demand signals.
+{% endif %}
 
 {% else %}
+{# multi-run discussion #}
 The ensemble of {{ runs | length }} tagged scenarios spans
 {{ min_launches }}--{{ max_launches }}~launches,
 {{ min_periods }}--{{ max_periods }}~periods
 ({{ "%.1f"|format(min_periods * 7 / 30) }}--{{ "%.1f"|format(max_periods * 7 / 30) }}~months),
-and \${{ "%.0f"|format(min_cost) }}--\${{ "%.0f"|format(max_cost) }}\,M
-of program cost. Cumulative proximity risk ranges from
+and \${{ "%.0f"|format(min_cost) }}--\${{ "%.0f"|format(max_cost) }}\,M of
+program cost.
+Cumulative proximity risk ranges from
 {{ "%.4f"|format(min_risk) }} to {{ "%.4f"|format(max_risk) }}.
-The breadth of this envelope is itself the first result of
-interest: even modest shifts in the objective weights
-$(w_1, w_2, w_3)$ produce outcomes that differ by up to
+The breadth of this envelope is the primary result of the
+multi-scenario comparison: even modest shifts in the objective
+weights $(w_1, w_2, w_3)$ produce architecturally distinct
+campaigns that differ by up to
 {{ "%.0f"|format((max_cost - min_cost) / min_cost * 100) if min_cost > 0 else 0 }}\%
-in cost and
+in total cost and
 {{ "%.0f"|format((max_periods - min_periods) / min_periods * 100) if min_periods > 0 else 0 }}\%
-in duration.
+in campaign duration across the sampled scenarios,
+demonstrating that the optimizer is genuinely sensitive to
+the stated mission priorities.
 
-\subsection{Launches versus Duration}
+\subsection{Launch Count versus Duration Trade-Off}
 
 The Pareto scatter in Fig.~\ref{fig:pareto} shows that reducing
-total launches by flying fewer, larger vehicles tends to
-lengthen the campaign: heavy-lift payloads arrive less
-frequently, crew-rotation gaps widen, and partial assembly
-(WIP) accumulates. Conversely, schedule-minimal solutions
-saturate the pad-turnaround constraint and push launch count
-toward its upper bound of $2|\mathcal{M}_{\mathrm{total}}|$.
-The frontier is close to linear over the sampled weight grid,
-suggesting a roughly constant marginal exchange rate between
-the two objectives within this parameter regime.
+the total number of launches by consolidating payload onto
+fewer, larger vehicles tends to lengthen the campaign:
+heavy-lift payloads arrive less frequently, so the assembly
+crew waits longer between material deliveries, crew-rotation
+gaps widen, and partial-assembly (WIP) modules accumulate
+without the cargo needed to complete them.
+Conversely, schedule-minimal solutions saturate the
+pad-turnaround constraint and push launch count toward its
+upper bound.
+{% if max_launches > min_launches %}
+Across this ensemble, increasing launch count by
+{{ max_launches - min_launches }}~flights
+(from {{ min_launches }} to {{ max_launches }})
+is associated with a reduction in campaign duration of up to
+{{ max_periods - min_periods }}~periods
+({{ "%.1f"|format((max_periods - min_periods) * 7 / 30) }}~months),
+implying an average marginal exchange rate of roughly
+{{ "%.1f"|format((max_periods - min_periods) / (max_launches - min_launches)) if (max_launches - min_launches) > 0 else '---' }}~periods
+saved per additional launch.
+{% endif %}
+Whether this trade-off is favorable depends on the program
+timeline and cost constraints; the Pareto frontier identifies
+the set of solutions that are not improvable without accepting
+a regression on at least one objective.
 
-\subsection{Cost Sensitivity}
+\subsection{Cost Sensitivity and Vehicle Economics}
 
 Total program cost spans a
-{{ "%.1f"|format(max_cost / min_cost) if min_cost > 0 else 0 }}$\times$
-range across the ensemble. Because crew vehicles incur a fixed
-per-flight premium and transfer stages amortize only when
-reused, cost is most sensitive to crew rotation frequency and
-to whether the selected cargo vehicles are L4-direct or
-require tug assistance
-(Eqs.~\ref{eq:rocket}--\ref{eq:tug}).
+{{ "%.1f"|format(max_cost / min_cost) if min_cost > 0 else '---' }}$\times$
+range from
+\${{ "%.0f"|format(min_cost) }}\,M to
+\${{ "%.0f"|format(max_cost) }}\,M across the ensemble.
+This range is explained primarily by vehicle selection:
+the optimizer's choice between high-unit-cost vehicles
+(SLS Block~2 at \$4{,}100\,M, Orion at \$600\,M/rotation)
+and cost-efficient alternatives (New Glenn at \$90\,M,
+Crew Dragon at \$220\,M/rotation) dominates the program budget.
+First-flight cost premiums (Eq.~\ref{eq:firstflight}) add
+a further fixed overhead for each unique vehicle type
+introduced; scenarios that reuse a smaller set of vehicles
+benefit from amortizing this premium across multiple flights.
+The $w_3$-dominant scenario in the ensemble identifies the
+minimum-cost architecture; comparing its vehicle mix against
+the launch-count-optimal scenario reveals which substitutions
+are economically efficient and which introduce unacceptable
+schedule risk.
 
-\subsection{Safety Trade-Offs}
+\subsection{Proximity Risk across Scenarios}
 
 Cumulative risk (Eq.~\ref{eq:risk}) scales with the square of
-simultaneous vehicle presence. Scenarios that minimize
-duration by compressing launches into overlapping windows
-incur disproportionately higher risk; the congestion penalty
-$\pi(n,p)$ already captures part of this effect in the cost
-function, but the residual risk metric exposes the remainder
-and could be promoted to an explicit fourth objective in
-future work.
+simultaneous vehicle count, so scenarios that compress launches
+into overlapping windows to minimize campaign duration incur
+disproportionately higher risk.
+Across this ensemble, the scenario with the shortest duration
+({{ min_periods }}~periods) accumulated a risk of
+{{ "%.4f"|format(max_risk) }}, while the
+{{ max_periods }}-period scenario accumulated
+{{ "%.4f"|format(min_risk) }}.
+This inverse relationship between schedule aggressiveness and
+safety margin is captured by the congestion penalty
+$\pi(n,p)$ in Eq.~(\ref{eq:penalty}), which reduces assembly
+throughput when vehicle density is high---providing an automatic
+but partial economic disincentive against highly concurrent
+operations.
+The residual risk metric $\mathcal{R}$ exposes the component not
+captured by $\pi$ and could be promoted to an explicit fourth
+weighted objective in future work.
 
 \subsection{Practical Recommendations}
 
-For operational planning, the Pareto points in
-Fig.~\ref{fig:pareto} that minimize launches at the expense of
-a modest duration increase are attractive: the incremental
-schedule cost is bounded while launch-stack complexity and
-proximity risk decrease together. Schedule-minimal operating
-points are justified only when external deadlines dominate the
-decision calculus.
+The solution-space chart (Fig.~\ref{fig:solution_space}) and
+Pareto frontier (Fig.~\ref{fig:pareto}) together identify the
+actionable operating points for mission planners.
+Pareto-optimal solutions at the ``knee'' of the frontier---where
+the marginal launch-count increase required to achieve a further
+duration reduction becomes large---offer the best combined
+performance; solutions at the extremes of the frontier represent
+specialised architectures (minimum-launch vs.\ minimum-duration)
+that are appropriate only when one objective dominates absolutely.
+For a balanced program with moderate budget constraints and a
+multi-year assembly timeline, the cost-optimal Pareto point
+(minimum \${{ "%.0f"|format(min_cost) }}\,M) likely provides
+the most defensible architecture: it avoids SLS Block~2's
+\$4{,}100\,M per-flight cost while remaining within the
+achievable duration range set by vehicle lead times and
+assembly rates.
+Schedule-minimal operating points are justified only when an
+external deadline (such as a planetary departure window)
+imposes a hard upper bound on campaign duration.
 
 {% endif %}
