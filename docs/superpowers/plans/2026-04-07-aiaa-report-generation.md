@@ -180,7 +180,7 @@ git commit -m "chore: scaffold LaTeX report directory with aiaa.cls and master r
 Create `report/sections/abstract.tex`:
 
 ```latex
-The in-space assembly of kilometer-scale spacecraft represents a
+The in-space assembly of kilometre-scale spacecraft represents a
 critical enabling capability for future deep-space exploration,
 space-based solar power, and large-aperture science missions.
 This paper presents a mission planning simulation tool for the
@@ -211,7 +211,7 @@ The assembly of large space structures in orbit has been demonstrated
 operationally through programs such as the International Space
 Station (ISS), which required over 40 assembly flights across more
 than a decade~\cite{nasa_iss_assembly}. However, the scale of
-structures envisioned for future missions—kilometer-class solar
+structures envisioned for future missions—kilometre-class solar
 power satellites, large interferometric telescope arrays, and
 interplanetary propulsion stages—far exceeds what was required for
 the ISS and demands a systematic optimization approach to campaign

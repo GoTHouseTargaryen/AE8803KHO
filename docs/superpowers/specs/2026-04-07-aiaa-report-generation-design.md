@@ -71,7 +71,7 @@ report/
 ~150 words. Static text. Summarizes the problem (in-space assembly at L4), the DP approach, and the simulation tool. Contains placeholder bracketed values (e.g. `[X launches]`, `[Y weeks]`) that the user fills in manually after reviewing their tagged results — the abstract is not auto-generated.
 
 ### 5.2 Introduction
-- Motivation for kilometer-scale spacecraft (deep-space missions, space solar power, large aperture telescopes)
+- Motivation for kilometre-scale spacecraft (deep-space missions, space solar power, large aperture telescopes)
 - Earth-Sun L4 rationale: gravitational stability (co-rotating with Earth), continuous solar power, distance from debris belts
 - Challenge statement: multi-year assembly campaign, multi-nation vehicle fleet, crew rotation logistics, on-orbit sequencing under uncertainty
 - Paper contributions: (1) DP formulation over time-expanded network, (2) multi-objective optimization with beam search, (3) interactive simulation tool with real-time playback
