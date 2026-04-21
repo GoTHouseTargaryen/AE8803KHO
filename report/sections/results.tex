@@ -17,26 +17,26 @@ Table~\ref{tab:metrics_1} summarizes the headline
 performance metrics for this scenario.
 The assembly campaign completed
 58~modules in
-154~periods
-(35.9~months),
-required 32~launch
+108~periods
+(25.2~months),
+required 36~launch
 events
-(27~cargo and 5~crew
+(32~cargo and 4~crew
 rotations),
 and incurred a total program cost of
-\$13660\,M.
+\$34160\,M.
 The cumulative proximity risk metric
 (Eq.~\ref{eq:risk}) accumulated to
-0.0018 over the campaign.
+0.0022 over the campaign.
 These figures reflect a spacecraft of length
 5\,km with
-Chemical propulsion and a
-Solar power system, optimized
+NEP propulsion and a
+Fission power system, optimized
 under objective weights
 $(w_1, w_2, w_3) =
 (5,\;
- 0,\;
- 0)$.
+ 1,\;
+ 1)$.
 
 \begin{table}[htbp]
 \centering
@@ -47,26 +47,26 @@ $(w_1, w_2, w_3) =
 \toprule
 Metric & Value \\
 \midrule
-Total launches        & 32 \\
-\quad Cargo flights   & 27 \\
-\quad Crew rotations  & 5 \\
-Mission duration      & 154 periods
-                        (35.9 months) \\
-Total program cost    & \$13660\,M \\
-Cost per module       & \$236\,M \\
+Total launches        & 36 \\
+\quad Cargo flights   & 32 \\
+\quad Crew rotations  & 4 \\
+Mission duration      & 108 periods
+                        (25.2 months) \\
+Total program cost    & \$34160\,M \\
+Cost per module       & \$589\,M \\
 Modules completed     & 58 \\
-Cumulative risk       & 0.0018 \\
+Cumulative risk       & 0.0022 \\
 Spacecraft length     & 5\,km \\
-Propulsion            & Chemical \\
-Power system          & Solar \\
+Propulsion            & NEP \\
+Power system          & Fission \\
 Cargo vehicles used &
   Falcon Heavy, Vulcan Centaur, SLS Block 2 \\
 Crew vehicle used &
   Starliner \\
 Objective weights ($w_1, w_2, w_3$) &
   (5,
-   0,
-   0) \\
+   1,
+   1) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -89,15 +89,15 @@ after campaign start), which is gated by the lead time of the
 selected cargo vehicles
 (Eq.~\ref{eq:leadtime}).
 The first crew rotation launched at period~13;
-assembly work began at period~45, once
+assembly work began at period~33, once
 sufficient cargo had arrived and at least one module was
 deliverable to the site.
-The campaign logged 27~cargo
+The campaign logged 32~cargo
 flights,
-5~crew rotations,
+4~crew rotations,
 and 58~module
 completions
-across 154~periods.
+across 108~periods.
 
 \begin{figure}[htbp]
   \centering
@@ -128,7 +128,7 @@ Flat crew-count segments between rotation launches indicate
 periods where crew is absent and assembly is stalled or purely
 robotic.
 The relatively elevated cumulative risk of
-0.0018 in this scenario
+0.0022 in this scenario
 is consistent with periods of high vehicle density visible in the
 chart; tightening the crew-rotation overlap schedule or
 staggering cargo arrivals would reduce the peak $n$ and
@@ -153,10 +153,10 @@ first-flight cost premium (Eq.~\ref{eq:firstflight}) is folded
 into the first flight's bar.
 Vehicles with zero flights are omitted; numeric cost labels
 (\$M) appear at the right end of each bar.
-The total program cost of \$13660\,M
+The total program cost of \$34160\,M
 is the sum of all bars in both panels.
-Of the 32~total launches,
-27~were cargo flights and 5~were
+Of the 36~total launches,
+32~were cargo flights and 4~were
 crew rotations; the relative height of the two panels indicates
 the cargo-versus-crew share of the total budget.
 A vehicle that appears in only one flight carries a
@@ -200,11 +200,11 @@ pipeline are well-matched, while a shallow slope or a late
 inflection point suggests the campaign was bottlenecked by
 transit time, crew availability, or DAG precedence constraints.
 In this scenario, 58~modules were
-completed in 154~periods, giving an
+completed in 108~periods, giving an
 average assembly rate of
-0.38~modules
+0.54~modules
 per period
-($\approx1.61$~per
+($\approx2.30$~per
 calendar month).
 
 \begin{figure}[htbp]
@@ -270,35 +270,35 @@ dispersed cloud shows strong weight sensitivity.
 
 The single tagged scenario
 (Currently Available Vehicles Minimizing Number of Launches)
-produced 32~launches,
-154~periods of assembly
-(35.9~months), and
-\$13660\,M of total
+produced 36~launches,
+108~periods of assembly
+(25.2~months), and
+\$34160\,M of total
 program cost under weights
 $(w_1, w_2, w_3) =
 (5,\;
- 0,\;
- 0)$.
+ 1,\;
+ 1)$.
 The discussion below interprets each performance dimension in light
 of the model physics and the selected configuration.
 
 \subsection{Launch Cadence and Vehicle Selection}
 
-The 32-launch campaign includes
-27~cargo
+The 36-launch campaign includes
+32~cargo
 flights
-and 5~crew
+and 4~crew
 rotations,
 averaging
-0.21~total
+0.33~total
 launches per period
-($\approx0.89$~per
+($\approx1.43$~per
 calendar month).
 The cargo fleet comprised
 Falcon Heavy and Vulcan Centaur and SLS Block 2;
 crew rotations used
 Starliner.
-At 0.55~launches per module,
+At 0.62~launches per module,
 the optimizer consolidated multiple modules onto individual
 flights, reflecting the weight $w_1 = 5$
 placed on minimizing launch count.
@@ -307,23 +307,23 @@ overall pad-time and range-coordination overhead.
 The pad-turnaround constraint (Section~II.G) precluded any
 single vehicle from flying more frequently than once every
 $\Delta t_{\mathrm{pad}} = 2$ periods; the observed cadence
-of 0.21~launches
+of 0.33~launches
 per period is consistent with this ceiling for
-32~flights across
-154~periods.
+36~flights across
+108~periods.
 
 \subsection{Schedule, Crew Coverage, and Assembly Bottlenecks}
 
-The campaign completed in 154~periods
-(35.9~months).
+The campaign completed in 108~periods
+(25.2~months).
 The first cargo flight launched at period~4,
 gated by the lead time of the selected cargo vehicle.
-Assembly work commenced at period~45,
+Assembly work commenced at period~33,
 after sufficient modules had arrived at the site and a crew
 vehicle was docked to begin EVA operations.
 The average assembly rate of
-0.38~modules per period
-(1.61~per calendar month) was
+0.54~modules per period
+(2.30~per calendar month) was
 set by the interaction of crew EVA capacity
 (Eqs.~\ref{eq:eva}--\ref{eq:crew_hours}), DAG precedence
 constraints, and proximity congestion penalties
@@ -342,14 +342,14 @@ Fig.~\ref{fig:modules_1}.
 
 \subsection{Cost Structure and Program Economics}
 
-At \$13660\,M total,
+At \$34160\,M total,
 the campaign incurred an average cost of
-\$236\,M per
+\$589\,M per
 assembled module.
 The cost breakdown (Fig.~\ref{fig:cost_1}) decomposes this
 total into contributions from each cargo and crew vehicle.
 Because cost was not the dominant objective
-($w_3 = 0$), the optimizer may have
+($w_3 = 1$), the optimizer may have
 selected higher-capacity or faster-available vehicles at a cost
 premium; the cost chart shows where the largest single-vehicle
 expenditures occurred.
@@ -362,8 +362,8 @@ uncrewed during transit windows.
 \subsection{Proximity Risk and Operational Safety}
 
 The cumulative proximity risk of
-0.0018 was accumulated
-over 154~periods according to
+0.0022 was accumulated
+over 108~periods according to
 Eq.~(\ref{eq:risk}).
 The low cumulative risk reflects well-separated vehicle traffic:
 cargo and crew arrivals were largely non-overlapping, keeping

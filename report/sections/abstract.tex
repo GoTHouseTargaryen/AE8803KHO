@@ -3,16 +3,34 @@ critical enabling capability for future deep-space exploration,
 space-based solar power, and large-aperture science missions.
 This paper presents a mission planning simulation tool for the
 on-orbit assembly of a modular spacecraft at the Earth-Sun L4
-Lagrange point, leveraging assets from Artemis Accords partner
-nations. The optimizer formulates assembly scheduling as a
-multi-objective dynamic programming problem over a time-expanded
-network, minimizing a weighted combination of total launches,
-assembly duration, and program cost. Beam search pruning
-constrains the state-space to tractable size while retaining
-near-optimal solutions. A Flask REST API exposes the simulation
-engine to a Next.js web application that provides interactive
-configuration, real-time playback of the assembly campaign, and
-multi-scenario Pareto frontier analysis. Results demonstrate
-the trade-off sensitivity between launch frequency, crew rotation
-strategy, and propulsion architecture selection for spacecraft
-ranging from 0.5\,km to 2\,km in length.
+Lagrange point, drawing on launch vehicles from Artemis Accords
+partner nations.
+The optimizer formulates the assembly campaign as a
+finite-horizon Markov decision process over a time-expanded
+network and solves the Bellman optimality equation via forward
+beam search, constraining the exponential module-set state space
+to tractable size while retaining near-optimal solutions.
+Eight constraints are explicitly enforced: assembly DAG
+precedence, EVA crew-pair and IVA-support allocation, a 60\%
+crew duty-cycle cap, scale-adaptive proximity congestion
+penalties, partial work-in-progress tracking across periods,
+pad turnaround intervals, first-flight cost premiums, and cargo
+vehicle proximity contributions during unloading.
+A multi-objective cost function combines normalized launch count,
+campaign duration, and program cost with user-adjustable weights,
+enabling Pareto frontier analysis across the full weight space.
+A catalog of nine cargo vehicles, four crew vehicles, and three
+transfer stages spanning six Artemis partner nations is supported,
+along with a parametric spacecraft generator covering 14 module
+types in six subsystem categories.
+A Flask REST API exposes the solver to a Next.js web application
+providing interactive configuration, real-time Gantt playback,
+and one-click PDF report generation.
+An example scenario for a 5\,km NEP spacecraft under
+launch-minimizing weights
+$(w_1, w_2, w_3) = (5, 1, 1)$
+requires 33 launches across 22.2~months at a program cost of
+\$17{,}630\,M to assemble 58~modules.
+Pareto analysis shows that modest shifts toward time minimization
+increase launch count only marginally, while cost-optimal
+solutions incur substantial schedule duration penalties.

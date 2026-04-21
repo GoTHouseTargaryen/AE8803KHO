@@ -27,7 +27,7 @@ export default function ResourceCharts() {
   if (!result || data.length === 0) return null;
 
   return (
-    <div className="bg-gray-800 rounded p-3 mb-4">
+    <div className="bg-gray-800 rounded p-3">
       <h3 className="text-sm font-semibold mb-2 text-gray-300">Resource Utilization Over Time</h3>
       <ResponsiveContainer width="100%" height={200}>
         <AreaChart data={data}>

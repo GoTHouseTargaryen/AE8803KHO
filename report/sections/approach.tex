@@ -44,13 +44,7 @@ optimal decisions; $c(S,D,t)$ is the immediate one-period cost of
 taking decision $D$, which aggregates launch costs, first-flight
 premiums, and fractional weighted-objective penalties; and
 $\mathcal{D}(S,t)$ is the feasible decision set enforced by
-lead-time gates, pad-turnaround constraints, and DAG precedence
-rules.
-The Bellman recursion guarantees global optimality over the finite
-horizon, but its state space---exponential in $|\mathcal{M}|$ due
-to the module-set bitmask---is intractable beyond approximately
-20~modules, motivating the beam-search approximation in
-Section~\ref{sec:beam}.
+lead-time gates, pad-turnaround constraints, and available crew-hours.
 
 \subsection{Modeling Assumptions}
 \label{sec:assumptions}
@@ -58,8 +52,8 @@ Section~\ref{sec:beam}.
 The model rests on a set of simplifying assumptions organized into
 four categories: orbital mechanics, assembly operations, vehicle
 logistics, and program-level scope. Table~\ref{tab:assumptions}
-lists each assumption together with its category, the quantity it
-fixes or bounds, and its rationale classification.
+lists each assumption together with its category, the assumption 
+itself, and its rationale classification.
 
 \begin{table}[htbp]
 \centering
@@ -158,8 +152,7 @@ planned EVA. Crew homogeneity collapses the specialist-vs-generalist
 crew composition problem: for a planning tool at this fidelity,
 total available crew-hours is the binding constraint, not role
 allocation within a period. The robotic time penalty ($\eta_r =
-1.5$) reflects the additional overhead of teleoperation---camera
-alignment, arm repositioning, verification pauses---documented
+1.5$) reflects the additional overhead of teleoperation documented
 in ISS Canadarm-2 assembly records.
 
 \paragraph{Vehicle and logistics.}

@@ -3,6 +3,7 @@
 import MetricsSummary from "./MetricsSummary";
 import GanttChart from "./GanttChart";
 import ResourceCharts from "./ResourceCharts";
+import DecisionLog from "./DecisionLog";
 import CostBreakdown from "./CostBreakdown";
 import ParetoPlot from "./ParetoPlot";
 import AssemblyView from "./AssemblyView";
@@ -21,9 +22,14 @@ export default function Dashboard() {
       <MetricsSummary />
       <PlaybackControls />
       <AssemblyView />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="mb-4">
         <GanttChart />
+      </div>
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <ResourceCharts />
+        <DecisionLog />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <CostBreakdown />
         <ParetoPlot />
       </div>

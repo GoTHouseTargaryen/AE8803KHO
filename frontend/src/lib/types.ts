@@ -83,9 +83,50 @@ export interface SimulationRequest {
   robotic_time_penalty: number;
 }
 
+export interface TimelineMath {
+  // Capacity inputs
+  total_crew: number;
+  crew_hours_raw: number;
+  robotic_hours_raw: number;
+  crew_hours: number;
+  robotic_hours: number;
+  crew_hours_unused: number;
+  robotic_hours_unused: number;
+  proximity_penalty: number;
+  n_proximity: number;
+  // Assembly state
+  dag_available_count: number;
+  buildable_count: number;
+  buildable_modules: string[];
+  newly_built_modules: string[];
+  wip_modules: Record<string, number>;
+  // Launch eligibility
+  eligible_cargo_vehicles: string[];
+  eligible_crew_vehicles: string[];
+  // Risk
+  collision_risk_increment: number;
+  // Pipeline / next step
+  crew_rotations: Array<{ vehicle: string; crew: number; periods_remaining: number }>;
+  pending_deliveries: Array<{ modules: string[]; arrival_period: number; periods_until: number }>;
+  // Output state
+  modules_built: number;
+  modules_total: number;
+  progress_pct: number;
+  total_launches: number;
+  launches_this_period: number;
+  total_cost_million: number;
+  cost_this_period: number;
+  // Objective breakdown
+  weighted_cost: number;
+  J_launches: number;
+  J_time: number;
+  J_cost: number;
+}
+
 export interface TimelineEntry {
   period: number;
   actions: string[];
+  math?: TimelineMath;
 }
 
 export interface SimulationResult {
