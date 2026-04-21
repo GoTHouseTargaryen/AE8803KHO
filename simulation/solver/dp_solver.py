@@ -201,10 +201,39 @@ class DPSolver:
         )
         if not is_active:
             return 0.0
-        # activity_bonus guarantees active > idle even at maximum cost penalty
-        activity_bonus = self.total_modules * 2
+        # activity_bonus must exceed the maximum possible cost_penalty at any weight setting.
+        # weighted_cost ≤ w_L + w_T + w_C (all terms normalised to [0,1]).
+        # Setting activity_bonus = max_j * total_modules + total_modules + 1 guarantees
+        # that (progress + activity_bonus - cost_penalty) > total_modules ≥ 1 for any
+        # feasible cost, so the secondary score retains genuine variation and is never
+        # floored to 1.0 even when all objective weights are at their maximum.
+        max_j = (
+            self.config.weights.w_launches
+            + self.config.weights.w_time
+            + self.config.weights.w_cost
+        )
+        activity_bonus = max_j * self.total_modules + self.total_modules + 1
         cost_penalty = weighted_cost * self.total_modules
-        return max(float(progress) + activity_bonus - cost_penalty, 1.0)
+
+        # Time-urgency bonus: at every beam step all successors share the same
+        # state.period, so J_time (w_time * period / max_periods) is identical
+        # for every successor — it never differentiates them.  To give w_time
+        # real influence, reward states where in-transit cargo arrives sooner:
+        # an early launch (small arrival_lag) beats a late launch at the same
+        # pipeline depth.  Scaling by w_time * total_modules keeps this bonus
+        # in the same numerical range as cost_penalty.
+        time_urgency = 0.0
+        if self.config.weights.w_time > 0:
+            for cargo in state.cargo_in_transit:
+                lag = max(cargo.arrival_period - state.period, 1)
+                time_urgency += (
+                    self.config.weights.w_time
+                    * len(cargo.module_ids)
+                    * self.total_modules
+                    / lag
+                )
+
+        return float(progress) + activity_bonus - cost_penalty + time_urgency
 
     def _is_dominated(
         self,
@@ -264,19 +293,52 @@ class DPSolver:
             ] = []
 
             for state, delivered, wip, last_launch, timeline in beam:
-                successors = self._expand(state, delivered, wip, last_launch, period)
+                successors, period_meta = self._expand(state, delivered, wip, last_launch, period)
+                _max_l = self.total_modules * 2
+                _w = self.config.weights
                 for new_state, new_delivered, new_wip, new_last_launch, actions in successors:
                     cost = compute_cost(
                         self.config.weights,
                         new_state.total_launches,
                         new_state.period,
                         new_state.total_cost_million,
-                        max_launches=self.total_modules * 2,
+                        max_launches=_max_l,
                         max_periods=self.config.max_periods,
                         max_cost_million=self._max_cost_million,
                     )
                     new_timeline = timeline + [
-                        {"period": period, "actions": actions}
+                        {
+                            "period": period,
+                            "actions": actions,
+                            "math": {
+                                **period_meta,
+                                # --- Output state ---
+                                "modules_built": len(new_state.modules_built),
+                                "modules_total": self.total_modules,
+                                "progress_pct": round(
+                                    len(new_state.modules_built) / max(self.total_modules, 1) * 100, 1
+                                ),
+                                "total_launches": new_state.total_launches,
+                                "launches_this_period": new_state.total_launches - state.total_launches,
+                                "total_cost_million": round(new_state.total_cost_million, 2),
+                                "cost_this_period": round(
+                                    new_state.total_cost_million - state.total_cost_million, 2
+                                ),
+                                # --- Objective breakdown ---
+                                "weighted_cost": round(cost, 4),
+                                "J_launches": round(
+                                    _w.w_launches * new_state.total_launches / max(_max_l, 1), 4
+                                ),
+                                "J_time": round(
+                                    _w.w_time * new_state.period / max(self.config.max_periods, 1), 4
+                                ),
+                                "J_cost": round(
+                                    _w.w_cost * new_state.total_cost_million
+                                    / max(self._max_cost_million, 1),
+                                    4,
+                                ),
+                            },
+                        }
                     ]
                     next_beam.append(
                         (new_state, new_delivered, new_wip, new_last_launch, new_timeline, cost)
@@ -317,7 +379,7 @@ class DPSolver:
         wip: _WIP,
         last_launch: _LastLaunch,
         period: int,
-    ) -> list[tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[str]]]:
+    ) -> tuple[list[tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[str]]], dict]:
         successors: list[tuple[SimState, frozenset[str], _WIP, _LastLaunch, list[str]]] = []
 
         # --- Process cargo arrivals ---
@@ -602,7 +664,47 @@ class DPSolver:
                         ],
                     ))
 
-        return successors
+        period_meta: dict = {
+            # --- Capacity inputs ---
+            "total_crew": total_crew,
+            "crew_hours_raw": round(crew_state_obj.eva_hours_per_period, 2),
+            "robotic_hours_raw": round(crew_state_obj.robotic_hours_per_period, 2),
+            "crew_hours": round(crew_hours, 2),
+            "robotic_hours": round(robotic_hours, 2),
+            "crew_hours_unused": round(max(remaining_crew_hours, 0.0), 2),
+            "robotic_hours_unused": round(max(remaining_robotic_hours, 0.0), 2),
+            "proximity_penalty": round(penalty, 4),
+            "n_proximity": n_prox,
+            # --- Assembly state ---
+            "dag_available_count": len(available),
+            "buildable_count": len(buildable),
+            "buildable_modules": sorted(buildable),
+            "newly_built_modules": sorted(newly_built),
+            "wip_modules": {mid: round(hrs, 2) for mid, hrs in new_wip.items()},
+            # --- Launch eligibility ---
+            "eligible_cargo_vehicles": sorted(eligible_cargo.keys()),
+            "eligible_crew_vehicles": [cv.name for cv in eligible_crew],
+            # --- Risk ---
+            "collision_risk_increment": round(risk, 6),
+            # --- Pipeline (next-step inputs) ---
+            "crew_rotations": [
+                {
+                    "vehicle": cv.vehicle_name,
+                    "crew": cv.crew_onboard,
+                    "periods_remaining": cv.periods_remaining,
+                }
+                for cv in active_crew
+            ],
+            "pending_deliveries": [
+                {
+                    "modules": list(c.module_ids),
+                    "arrival_period": c.arrival_period,
+                    "periods_until": max(0, c.arrival_period - period),
+                }
+                for c in remaining_transit
+            ],
+        }
+        return successors, period_meta
 
     def _make_result(self, state: SimState, timeline: list[dict]) -> SolverResult:
         return SolverResult(
